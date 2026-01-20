@@ -24,7 +24,7 @@
     - `[Next](target)` (链接跳转)
 - [ ] **自动路由表生成 (Auto-Router)**
   - 启动时递归扫描 `assets/scripts/` 目录。
-  - 解析每个 `.md` 文件的 Frontmatter (YAML 头) 获取 ID 和标题。
+  - 解析每个 `.hmd` 文件的 Frontmatter (YAML 头) 获取 ID 和标题。
   - 构建 `HashMap<String, PathBuf>` 映射表 (Route ID -> File Path)。
   - **验证**: 打印出生成的路由表。
 

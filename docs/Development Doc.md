@@ -29,8 +29,8 @@ Hoshimi 是一款基于 Rust 语言开发的高性能、跨平台 GalGame/Visual
     - **Lua VM**: 管理 Global Variables (Flag)，处理复杂逻辑判断(Luau API 风格)。
     - **Resource Manager**: 基于路由表自动预测并分段加载/卸载资源。
 4.  **内容表现层 (Content)**:
-    - **Markdown Scripts**: 游戏剧本与基础演出。
-    - **DSL UI Types**: 组件化 UI 描述。
+    - **HMD Scripts (`.hmd`)**: 游戏剧本与基础演出。
+    - **UI DSL (`.hui`)**: 组件化 UI 描述。
 
 ## 3. 详细模块设计
 
@@ -38,13 +38,13 @@ Hoshimi 是一款基于 Rust 语言开发的高性能、跨平台 GalGame/Visual
 引擎不再强制要求编写大量初始化代码，而是以 Markdown 文件为单一事实来源 (Single Source of Truth)。
 
 - **自动路由表 (Auto-Routing)**: 
-    - 引擎启动时扫描 `assets/scripts/*.md`。
+    - 引擎启动时扫描 `assets/scripts/*.hmd`。
     - 根据文件名和 Frontmatter 生成路由表 (Route Table)。
-    - **跳转实现**: 开发者仅需在 Markdown 中书写 `[Next Chapter](chapter2.md)`，引擎自动处理场景切换与旧资源释放。
+    - **跳转实现**: 开发者仅需在 Markdown 中书写 `[Next Chapter](chapter2.hmd)`，引擎自动处理场景切换与旧资源释放。
 - **自动分段加载 (Auto-Segmentation)**:
     - 解析 Markdown 内容，按章节 (Chapter) 或 场景 (Scene) 切分资源组。
     - 给每一个 Markdown 最小的剧情片段添加一个指针，然后根据用户的配置文件去自动释放这个指针前多少的资源，和自动加载后多少的资源，这些都是异步加载进入内存的。
-    - 既然路由表已知，引擎可实现 **预加载 (Pre-load)** 下一个可能跳转的场景资源，并自动 **GC (Garbage Configure)** 远离当前路径的资源。
+    - 既然路由表已知，引擎可实现 **预加载 (Pre-load)** 下一个可能跳转的场景资源，并自动 **GC (Garbage Collection)** 远离当前路径的资源。
 
 ### 3.2 三层 UI 系统 (Tri-Layer UI System)
 为了平衡易用性与灵活性，UI 系统被设计为三个层级：
@@ -58,18 +58,20 @@ Hoshimi 是一款基于 Rust 语言开发的高性能、跨平台 GalGame/Visual
 
 #### **Level 2: 组件式 DSL UI (Component DSL)**
 *面向 UI 设计师。*
-为了避免 XML 的繁琐，采用类 Rust 结构体声明的 DSL (Domain Specific Language) 或简化版 JSON/TOML 定义不规则 UI 布局。
-```lua
--- layouts/title_screen.ui
-Screen {
-    id = "title_main",
-    children = {
-        Image { src = "logo.png", align = "top-center", listen = "hover_anim" },
-        VBox {
-            y = 500,
-            Button { text = "Start Game", action = "route:chapter1" },
-            Button { text = "Load", action = "sys:load_menu" }
-        }
+为了避免 XML 的繁琐，采用类 Rust/KDL 结构体声明的 DSL (Domain Specific Language) 定义不规则 UI 布局。UI 文件使用 `.hui` 扩展名。
+```rust
+// layouts/title_screen.hui
+Screen "TitleMain" {
+    background: "ui/bg_title"
+    
+    VBox {
+        align_x: "center"
+        align_y: "center"
+        spacing: 20
+        
+        Image { src: "ui/logo"; align_x: "center" }
+        Button { text: "Start Game"; on_click: "System.startGame" }
+        Button { text: "Load"; on_click: "System.loadMenu" }
     }
 }
 ```

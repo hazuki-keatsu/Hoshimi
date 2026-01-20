@@ -170,17 +170,29 @@ VBox {
             text: "Cast Spell"
             on_click: "Actions.castSpell"
         }
-    } Else If {
+    }
+    
+    // 使用 ElseIf 节点处理其他条件
+    ElseIf {
         condition: "${Player.magic_power} == 2"
 
+        Text {
+            text: "You have advanced magic power!"
+            color: "#00FF00"
+        }
+    }
+    
+    // 使用 Else 节点处理默认情况
+    Else {
         Text {
             text: "You need magic power to cast spells."
             color: "#888888"
         }
-    } Else {
-        // Pass
     }
 }
+```
+
+> **注意**: `If`, `ElseIf`, `Else` 必须在同一父容器内按顺序排列，且 `Else` 只能出现一次并位于末尾。
 ```
 
 ### 7.2 循环渲染 (Loop Rendering)

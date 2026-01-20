@@ -35,6 +35,25 @@ assets/
 
 - **立绘加载逻辑**: 当脚本调用 `!{ char: "hoshimi", face: "smile" }` 时，引擎会自动寻找 `assets/characters/hoshimi/smile.png` (支持 webp/png/jpg，但打包时会全部转换为 webp)。
 
+### 2.2 角色定义 (Character Definition)
+为了将对话中的**显示名称**（如 `**星见**`）与**资源 ID**（如 `hoshimi`）关联起来，需要在 `assets/characters.toml` 中定义角色映射表：
+
+```toml
+# assets/characters.toml
+
+[hoshimi]
+display_name = "星见"
+default_face = "default"
+text_color = "#FFD700"  # 可选：对话框中名字的颜色
+
+[mystery_girl]
+display_name = "???"
+default_face = "shadow"
+```
+
+*   **自动关联**: 当剧本中出现 `**星见**:` 时，引擎会自动查找 `display_name` 为 "星见" 的角色，并在需要时自动高亮或操作其立绘。
+*   **无需每次指定**: 如果角色已定义，对话时无需手动调用 `!{ char: ... }`，引擎会根据当前说话者自动显示对应立绘。
+
 ## 3. 基础语法 (Basic Syntax)
 
 Hoshimi 脚本完全兼容标准 Markdown 语法。可以使用`//`作为注释。
@@ -135,13 +154,33 @@ Hoshimi 脚本完全兼容标准 Markdown 语法。可以使用`//`作为注释�
 #### 3.3.1 路由跳转 (Jump)
 使用标准的 Markdown 链接语法跳转到通过路由表注册的其他 `.hmd` 脚本。
 
-`[]`中的内容将会变成专场时的加载界面标题
+`[]`中的内容将会变成转场时的加载界面标题
 
 ```markdown
 [第二章](chapter_02.hmd)
 ```
 
-#### 3.3.2 复杂交互选项 (Complex Choices)
+#### 3.3.2 场景标签/锚点 (Labels)
+使用 Markdown 标题语法定义**场景锚点 (Label)**，用于热重载时的状态恢复和脚本内跳转。
+
+```markdown
+# scene_morning
+
+!{ bg: "classroom_morning" }
+
+**星见**: 早上好！
+
+# scene_afternoon
+
+!{ bg: "classroom_afternoon" }
+
+**星见**: 下午好！
+```
+
+*   **热重载恢复**: 当脚本发生变化并重新加载时，引擎会尝试定位到当前最近的 Label，从该位置继续播放。
+*   **脚本内跳转**: 可以使用 `[跳转](#scene_afternoon)` 语法跳转到同一文件内的锚点。
+
+#### 3.3.3 复杂交互选项 (Complex Choices)
 使用 **无序列表** 定义选项。
 
 > **注意**：为了防止与普通文本列表混淆，引擎仅会将 **包含链接 `[]()`** 的列表项识别为交互选项。纯文本列表将作为普通旁白显示。
