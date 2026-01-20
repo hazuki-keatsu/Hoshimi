@@ -44,7 +44,6 @@ assets/
 [hoshimi]
 display_name = "星见"
 default_face = "default"
-text_color = "#FFD700"  # 可选：对话框中名字的颜色
 
 [mystery_girl]
 display_name = "???"
