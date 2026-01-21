@@ -3,11 +3,11 @@
 Version: 0.1.0
 
 ## 1. 文件格式
-为了区分普通 Markdown 文档与游戏剧本，Hoshimi 引擎使用 **`.hmd`** (Hoshimi Markdown) 作为剧本文件的扩展名。
+Hoshimi 引擎使用 **`.hmd`** (Hoshimi Markdown) 作为剧本文件的扩展名。为了提供更好的写作体验，我们设计了一套**定制化语法**，仅部分兼容 Markdown。
 
 - **扩展名**: `.hmd`
 - **编码**: UTF-8 (无 BOM)
-- **建议编辑器**: VS Code (配合官方插件)
+- **建议编辑器**: VS Code (配合插件)或者任何你想要的编辑器
 
 ## 2. 资源组织规范 (Asset Organization)
 
@@ -36,7 +36,7 @@ assets/
 - **立绘加载逻辑**: 当脚本调用 `!{ char: "hoshimi", face: "smile" }` 时，引擎会自动寻找 `assets/characters/hoshimi/smile.png` (支持 webp/png/jpg，但打包时会全部转换为 webp)。
 
 ### 2.2 角色定义 (Character Definition)
-为了将对话中的**显示名称**（如 `**星见**`）与**资源 ID**（如 `hoshimi`）关联起来，需要在 `assets/characters.toml` 中定义角色映射表：
+为了将对话中的**显示名称**（如 `[星见]`）与**资源 ID**（如 `hoshimi`）关联起来，需要在 `assets/characters.toml` 中定义角色映射表：
 
 ```toml
 # assets/characters.toml
@@ -50,152 +50,99 @@ display_name = "???"
 default_face = "shadow"
 ```
 
-*   **自动关联**: 当剧本中出现 `**星见**:` 时，引擎会自动查找 `display_name` 为 "星见" 的角色，并在需要时自动高亮或操作其立绘。
+*   **自动关联**: 当剧本中出现 `[星见]` 时，引擎会自动查找 `display_name` 为 "星见" 的角色，并在需要时自动高亮或操作其立绘。
 *   **无需每次指定**: 如果角色已定义，对话时无需手动调用 `!{ char: ... }`，引擎会根据当前说话者自动显示对应立绘。
 
 ## 3. 基础语法 (Basic Syntax)
 
-Hoshimi 脚本完全兼容标准 Markdown 语法。可以使用`//`作为注释。
+### 3.1 语句块与换行 (Blocks & Line Breaks)
 
-### 3.1 对话与旁白 (Dialogue)
-最基础的文本段落会被自动识别为对话或旁白。为了彻底解决符号冲突并提高可读性，引擎采用**“加粗即角色”**的判定策略。
+剧本由一个个**语句块 (Block)** 组成。
+*   **分隔符**: 使用**空行**（双换行）来分割不同的语句块。
+*   **换行规则**: 语句块内部的**单个换行**会被引擎保留并渲染，无需使用 `<br>`。
 
-*   **角色对话**：必须以 `**角色名**:` 或 `**角色名**：` 开头（注意**角色名必须加粗**）。此格式之后的内容即为对话文本。
-*   **旁白**：不符合上述格式的段落均视为旁白。
+### 3.2 对话与旁白 (Dialogue & Narration)
 
-同时，各种 Markdown 原生样式语法，均受支持：
-- **黑体** (粗体)
-- *斜体*
-- ~~删除线~~
-- 段内换行语法 `<br>`
+通过行首是否包含 `[角色名]` 来区分对话与旁白。
 
-**书写规则**：
-1. 每一段对话或旁白应使用**空行**分割。
-2. 解析器会读取 `**角色名**:` 后的所有文本直到下一个空行，这意味着对话可以跨行书写。
+#### 对话 (Dialogue)
+以 `[角色名]` 开头，后跟对话内容。角色名与内容之间可以有空格，也可以换行。
 
-```markdown
-这是一个普通的旁白段落，即使包含冒号：像这样，也不会被误判。
-
-**星见**:
+```text
+[星见]
 你好，指挥官！
-今天也是充满元气的一天呢！（因为没有空行，这行字仍属于上一句对话）
-
-**???**: 有些事情，还是不知道为好... (同行书写也是允许的)
+今天也是充满元气的一天呢！
 ```
 
-- **旁白**: 直接书写文本。
-- **角色对话**: 使用 `**角色名**: 对话内容` 的格式。
+#### 旁白 (Narration)
+没有 `[角色名]` 标记的文本块即为旁白。
 
-### 3.2 场景指令 (Annotations)
-使用 `!{ key: value, ... }` 格式的注解语法来控制演出效果。
-*   语法类似于 JavaScript 对象字面量，**键名 (Key) 无需加引号**。
-*   指令必须占据单独一行。
-
-#### 背景控制 (Background)
-```markdown
-// transition 和 duration 默认为 "fade" 和 1.0
-!{ bg: "bg_classroom_day" }
-
-// 手动设置
-!{ bg: "bg_classroom_day", transition: "cut" }
+```text
+阳光透过窗户洒在课桌上。
+远处传来了上课铃声。
 ```
 
-其他的 transition:
-1. `fade`：淡入淡出
-2. `cross-fade`：交叉淡入淡出
-3. `dissolve`：溶解过渡
-4. `wipe`：擦除过渡(默认向下擦除)
-   1. `wipe-up`：向上擦除
-   2. `wipe-down`：向下擦除
-   3. `wipe-left`：向左擦除
-   4. `wipe-right`：向右擦除
-5. `slide`：滑动进入(默认从左向右滑动)
-   1. `slide-left`：从右向左滑动滑动进入
-   2. `slide-right`：从左向右滑动滑动进入
-   3. `slide-up`：从下向上滑动滑动进入
-   4. `slide-down`：从上向下滑动滑动进入
+### 3.3 场景指令 (Annotations)
 
-目前默认只有这些，更多的进入特效可以通过插件系统实现，或者在仓库提 Issue，对于呼声高的，开发组会实现到引擎中。
+使用 `!{ key: value, ... }` 格式。
+*   **位置灵活**: 指令可以出现在语句块的**任何位置**。
+*   **触发时机**: 引擎渲染文本流，遇到指令位置时立即触发效果。
 
-#### 立绘管理 (Character)
-```markdown
-!{ char: "hoshimi", face: "smile", pos: "center" }
+```text
+!{ bg: "classroom", bgm: "daily" }
 
-// 通过百分比来确定位置
-!{ char: "hoshimi", face: "smile", pos: "25%" }
-
-// 同时操作多个属性
-!{ char: "hoshimi", face: "angry", effect: "shake" }
-
-// 隐藏立绘
-!{ char: "hoshimi", mode: "hide" }
+[星见]
+指挥官？!{ face: "surprise" } 你怎么在这里？
+其实... !{ face: "shy" } 我一直在等你。
 ```
 
-#### 音频控制 (Audio)
-```markdown
-// 播放 BGM (循环)
-!{ bgm: "daily_life_01", vol: 0.8 }
+### 3.4 流程控制 (Flow Control)
 
-// 播放 BGM (循环) + Intro
-!{ bgm: "daily_life_01", intro: "daily_life_01_intro", vol: 0.8 }
+#### 3.4.1 文件跳转 (Script Transition)
+使用 `(文件路径)` 语法进行剧本切换。该语句必须**独占一行**（或者是单独的一个语句块）。
+可以在同一行通过指令指定转场效果。
 
-// 播放音效 (单次)
-!{ sfx: "phone_ring" }
+```text
+// 跳转到第二章，使用默认转场
+(chapter_2.hmd)
 
-// 语音 (通常与对话配合，但也支持单独调用)
-!{ voice: "hoshimi_001" }
-**星见**:
-指挥官？
+// 跳转并指定转场特效
+(chapter_2.hmd) !{ transition: "fade", time: 2.0 }
 ```
 
-### 3.3 流程控制 (Flow Control)
+#### 3.4.2 场景锚点与跳转 (Anchors & Labels)
+*   **定义锚点**: 使用 `# 场景名` (标准 Markdown 标题语法)。
+*   **跳转锚点**: 使用 `(#场景名)`。
 
-#### 3.3.1 路由跳转 (Jump)
-使用标准的 Markdown 链接语法跳转到通过路由表注册的其他 `.hmd` 脚本。
+```text
+# scene_start
 
-`[]`中的内容将会变成转场时的加载界面标题
+[星见]
+我们要去哪里？
 
-```markdown
-[第二章](chapter_02.hmd)
+(#scene_forest)
+
+# scene_forest
+!{ bg: "forest" }
 ```
 
-#### 3.3.2 场景标签/锚点 (Labels)
-使用 Markdown 标题语法定义**场景锚点 (Label)**，用于热重载时的状态恢复和脚本内跳转。
+#### 3.4.3 分支选项 (Choices)
+使用 Markdown 无序列表语法。
+*   **格式**: `- [选项文本](跳转目标)`
+*   **附加指令**: 在选项下方**缩进**书写 `!{...}`，用于定义该选项触发时的逻辑或转场。
 
-```markdown
-# scene_morning
+跳转目标可以是：
+1. **文件路径**: `path/to/script.hmd`
+2. **场景锚点**: `#scene_name`
 
-!{ bg: "classroom_morning" }
-
-**星见**: 早上好！
-
-# scene_afternoon
-
-!{ bg: "classroom_afternoon" }
-
-**星见**: 下午好！
-```
-
-*   **热重载恢复**: 当脚本发生变化并重新加载时，引擎会尝试定位到当前最近的 Label，从该位置继续播放。
-*   **脚本内跳转**: 可以使用 `[跳转](#scene_afternoon)` 语法跳转到同一文件内的锚点。
-
-#### 3.3.3 复杂交互选项 (Complex Choices)
-使用 **无序列表** 定义选项。
-
-> **注意**：为了防止与普通文本列表混淆，引擎仅会将 **包含链接 `[]()`** 的列表项识别为交互选项。纯文本列表将作为普通旁白显示。
-
-可以通过 **缩进的注解块 (Nested Block)** 为选项添加附加逻辑（如播放音效、转场动画、执行 Lua 代码）。
-
-```markdown
+```text
 面临选择，你决定：
 
-- [使用传送魔法](scene_magic.hmd)
+- [使用传送魔法](#scene_magic)
   !{ transition: "swirl", sfx: "teleport", cost: 10 }
-  
 - [徒步走过去](scene_walk.hmd)
   !{ transition: "fade", time: 2.0 }
 ```
-- **设计理念**: 利用 Markdown 的嵌套列表语法，让附加属性自然地依附于选项。
 
 ## 4. 逻辑扩展 (Logic Extensions)
 
@@ -210,10 +157,10 @@ Hoshimi 脚本完全兼容标准 Markdown 语法。可以使用`//`作为注释�
 
 // 条件分支块 (Block)
 << if GameVars.has_key then >>
-**系统**:
+[系统]
 你使用钥匙打开了门。
 << else >>
-**系统**:
+[系统]
 门锁着，你打不开。
 << end >>
 ```
@@ -221,7 +168,7 @@ Hoshimi 脚本完全兼容标准 Markdown 语法。可以使用`//`作为注释�
 ### 4.2 文本内变量 (Inline Variables)
 在对话中动态插入变量值，使用 `${var}` 语法。
 
-```markdown
-**店员**:
+```text
+[店员]
 这把剑售价 ${item_price} 金币，你要买吗？
 ```
