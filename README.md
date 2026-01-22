@@ -11,8 +11,11 @@ This project adopts a **Layered Architecture** similar to the Flutter Engine, se
 ```
 Hoshimi/
 ├── examples/               # Example projects for testing the engine
-│   └── hello_world/        # A standard boilerplate project
-│       ├── assets/         # Game content (Images, Scripts, UI)
+│   └── hello_hoshimi/      # A standard boilerplate project
+│       ├── images/         # Image assets
+│       ├── scripts/        # Script assets
+│       ├── audios/         # Audio assets
+│       ├── build/          # Build target directory and engine runtime
 │       └── config.toml     # Project configuration
 ├── docs/                   # Documentation
 ├── plugins/                # Core Lua plugins

@@ -11,31 +11,49 @@
 
 ## 3. 架构总览 (Architecture)
 
-为了实现类似于 Flutter 的热重载，我们需要将引擎的数据层 (State) 与表现层 (Presentation/Logic) 严格分离。
+为了实现全栈热重载，系统分为 **引擎代码热重载 (Code Reload)** 和 **资源内容热重载 (Asset Reload)** 两个层次。
 
 ```mermaid
 flowchart LR
-    Watcher["Watcher[File Watcher (notify crate)]"] -->|File Changed Event| HRManager["HRManager[Hot Reload Manager]"]
-    
-    HRManager -->|*.hmd| ScriptReload["ScriptReloader"]
-    HRManager -->|*.hui| UIReload["UIReloader"]
-    HRManager -->|*.lua| LuaReload["LuaReloader"]
-    HRManager -->|*.png/.wav| AssetReload["AssetReloader"]
-
-    subgraph "Engine Runtime"
-        State["Global State (Variables, Progress, Routing)"]
-        UI["UI Tree"]
-        VM["Script VM"]
-        Res["Resource Cache"]
+    subgraph Driver ["Driver Process (hoshimi-player.exe)"]
+        DLLWatcher["DLL Watcher"]
+        Loader["LibLoading Manager"]
+        State["Serialized State Buffer"]
     end
 
-    ScriptReload -->|Re-parse & Re-locate| State
-    UIReload -->|Re-build Tree| UI
-    LuaReload -->|Reload Module| VM
-    AssetReload -->|Invalidate & Reload| Res
+    subgraph Core ["Dynamic Library (hoshimi_core.dll)"]
+        AssetWatcher["Asset Watcher (notify)"]
+        
+        subgraph Systems
+            ScriptReload["Script System"]
+            UIReload["UI System"]
+            LuaReload["Lua VM"]
+            AssetReload["Resource Cache"]
+        end
+    end
+    
+    %% Engine Code Reload Flow
+    DLLWatcher --"1. Detects Change"--> Loader
+    Loader --"2. Unload"--> Core
+    Core --"3. Serialize State"--> State
+    Loader --"4. Reload & Restore"--> Core
+
+    %% Content Reload Flow
+    AssetWatcher --"File Changed"--> Systems
+    ScriptReload -->|*.hmd| ScriptReload
+    UIReload -->|*.hui| UIReload
+    LuaReload -->|*.lua| LuaReload
+    AssetReload -->|*.png/.wav| AssetReload
 ```
 
 ## 4. 模块详细设计
+
+### 4.0 引擎核心代码热重载 (Core DLL Reload)
+这是架构升级的核心。当开发者修改 Rust 源码并重新编译 `hoshimi_core.dll` 时：
+1.  **Driver 监听**: 检测到 DLL 文件变化。
+2.  **预卸载 (Pre-Unload)**: 调用 Core 的 `hoshimi_pre_unload()`。Core 暂停所有逻辑，将所有关键状态（Lua Global, UI Tree State, Navigation Stack）序列化为二进制 Blob。
+3.  **重加载 (Reload)**: Driver 卸载旧 DLL，加载新 DLL，获取新的函数指针。
+4.  **恢复 (Post-Load)**: 调用新 Core 的 `hoshimi_post_load(Blob)`。新 Core 反序列化状态，恢复运行。
 
 ### 4.1 剧情脚本热重载 (`.hmd`)
 Markdown 脚本是游戏的主体。修改对话文本或演出指令应立即反映在当前画面。

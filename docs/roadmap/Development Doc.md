@@ -18,19 +18,19 @@ Hoshimi 是一款基于 Rust 语言开发的高性能、跨平台 GalGame/Visual
 - **资源管理**: 自动化资源分段与懒加载
 
 ### 2.2 架构分层
-引擎整体架构自底向上分为四层：
+本引擎采用 **Driver + Core** 分离式架构，详见 [Architecture Design](../architecture/Architecture Design.md)。整体逻辑分层如下：
 
-1.  **平台适配层 (HAL)**: SDL2 窗口管理、输入事件泵、OpenGL 上下文。
-2.  **引擎核心层 (Core)**: 
-    - **Renderer**: Skia 渲染封装，支持插件注入渲染指令。
-    - **Plugin System**: 插件生命周期管理（Init, Update, Render Hooks）。
-    - **Router**: 路由表管理器，负责解析 Markdown 生成场景图。
-3.  **脚本与数据层 (Scripting)**:
-    - **Lua VM**: 管理 Global Variables (Flag)，处理复杂逻辑判断(Luau API 风格)。
-    - **Resource Manager**: 基于路由表自动预测并分段加载/卸载资源。
-4.  **内容表现层 (Content)**:
-    - **HMD Scripts (`.hmd`)**: 游戏剧本与基础演出。
-    - **UI DSL (`.hui`)**: 组件化 UI 描述。
+1.  **Driver Layer (`bins/driver`)**: 
+    - 负责操作系统交互、窗口管理 (SDL2)、动态库加载与热重载管理。
+2.  **Core Layer (`crates/core`)**: 
+    - **Renderer**: Skia 渲染封装。
+    - **Plugin System**: 插件生命周期管理。
+    - **Router**: 路由表管理器。
+    - **Lua VM**: 脚本执行环境。
+3.  **Content Layer (User Project)**:
+    - **HMD Scripts**: 游戏剧本。
+    - **UI DSL**: 界面定义。
+    - **Assets**: 图片、音频等多媒体资源。
 
 ## 3. 详细模块设计
 
