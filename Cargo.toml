@@ -1,9 +1,13 @@
-[package]
-name = "Hoshimi"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+    "bins/cli",
+    "bins/driver",
+    "crates/core",
+    "crates/shared",
+]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
 ffmpeg-next = "8.0.0"
 mlua = "0.11.5"
 sdl2 = "0.38.0"
