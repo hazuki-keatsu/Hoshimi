@@ -8,3 +8,6 @@
 /dataSources.local.xml
 # 基于编辑器的 HTTP 客户端请求
 /httpRequests/
+
+# 忽略 Copilot 文件
+copilot.*
