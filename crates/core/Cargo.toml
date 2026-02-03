@@ -4,11 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# 引用根目录定义的依赖
-sdl2 = { workspace = true }
-skia-safe = { workspace = true }
-# 引用工作区内的其他成员
-hoshimi_shared = { path = "../shared" }

@@ -3,4 +3,9 @@ name = "hoshimi_driver"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "hoshimi-player"
+path = "src/main.rs"
+
 [dependencies]
+sdl3 = {workspace = true}
