@@ -3,4 +3,8 @@ name = "hoshimi_cli"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "hoshimi_cli"
+path = "src/main.rs"
+
 [dependencies]

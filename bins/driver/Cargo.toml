@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "hoshimi-player"
+name = "hoshimi_player"
 path = "src/main.rs"
 
 [dependencies]
 sdl3 = {workspace = true}
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+hoshimi_renderer = { path = "../../crates/renderer" }
+gl = { workspace = true }
