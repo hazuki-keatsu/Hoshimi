@@ -166,11 +166,6 @@ pub trait RenderObject: Debug + Any {
         // Default: no children supported
     }
     
-    /// Get the number of children
-    fn child_count(&self) -> usize {
-        0
-    }
-    
     // ========================================================================
     // Dirty Flags
     // ========================================================================

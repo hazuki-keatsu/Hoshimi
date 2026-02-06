@@ -320,8 +320,4 @@ impl RenderObject for ColumnRenderObject {
         self.children.insert(index.min(self.children.len()), child);
         self.state.mark_needs_layout();
     }
-    
-    fn child_count(&self) -> usize {
-        self.children.len()
-    }
 }

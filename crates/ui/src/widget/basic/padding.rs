@@ -171,8 +171,4 @@ impl RenderObject for PaddingRenderObject {
         self.child = child;
         self.state.mark_needs_layout();
     }
-    
-    fn child_count(&self) -> usize {
-        1
-    }
 }

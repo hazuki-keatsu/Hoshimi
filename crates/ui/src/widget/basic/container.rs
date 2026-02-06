@@ -336,8 +336,4 @@ impl RenderObject for ContainerRenderObject {
     fn remove_child(&mut self, _index: usize) -> Option<Box<dyn RenderObject>> {
         self.child.take()
     }
-    
-    fn child_count(&self) -> usize {
-        if self.child.is_some() { 1 } else { 0 }
-    }
 }

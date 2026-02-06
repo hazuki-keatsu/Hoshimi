@@ -140,18 +140,13 @@ impl UiTree {
     /// Recursively update children of a render object
     fn update_children_recursive(render_object: &mut dyn RenderObject, widget: &dyn Widget) {
         let widget_children = widget.children();
-        let child_count = render_object.child_count();
         
-        // Handle matching children
-        let common_len = widget_children.len().min(child_count);
+        let ro_child_count = render_object.children_mut().len();
         
+        // Handle matching children - update existing ones
         {
             let ro_children = render_object.children_mut();
-            for (i, (ro_child, w_child)) in ro_children.into_iter().zip(widget_children.iter()).enumerate() {
-                if i >= common_len {
-                    break;
-                }
-                
+            for (ro_child, w_child) in ro_children.into_iter().zip(widget_children.iter()) {
                 // Update child
                 w_child.update_render_object(ro_child);
                 ro_child.on_update();
@@ -162,16 +157,16 @@ impl UiTree {
         }
         
         // Handle added children
-        if widget_children.len() > child_count {
-            for w_child in &widget_children[child_count..] {
+        if widget_children.len() > ro_child_count {
+            for w_child in &widget_children[ro_child_count..] {
                 let new_child = Reconciler::build_tree(*w_child);
                 render_object.add_child(new_child);
             }
         }
         
         // Handle removed children (in reverse order)
-        if child_count > widget_children.len() {
-            for i in (widget_children.len()..child_count).rev() {
+        if ro_child_count > widget_children.len() {
+            for i in (widget_children.len()..ro_child_count).rev() {
                 if let Some(mut removed) = render_object.remove_child(i) {
                     Reconciler::unmount_recursive(removed.as_mut());
                 }

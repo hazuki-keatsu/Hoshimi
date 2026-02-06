@@ -245,8 +245,4 @@ impl RenderObject for SizedBoxRenderObject {
         self.state.mark_needs_layout();
         self.child.take()
     }
-    
-    fn child_count(&self) -> usize {
-        if self.child.is_some() { 1 } else { 0 }
-    }
 }

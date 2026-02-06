@@ -46,8 +46,11 @@ fn main() {
         .preload_image("logos/logo.png")
         .expect_log("Failed to load logo.png");
 
+    // Application state
+    let mut welcome_text = String::from("Welcome to Hoshimi!");
+    
     // Create UI tree and build test scene
-    let mut ui_tree = UiTree::with_root(build_test_ui());
+    let mut ui_tree = UiTree::with_root(build_test_ui(&welcome_text));
     ui_tree.set_size(1280.0, 720.0);
 
     logger::info!("Hoshimi Driver: Init successfully.");
@@ -92,8 +95,18 @@ fn main() {
         ui_tree.process_events();
         
         // Handle UI messages
+        let mut needs_update = false;
         for message in ui_tree.take_messages() {
             handle_ui_message(&message);
+            if reforward_animation(&message, &mut welcome_text) {
+                needs_update = true;
+            }
+        }
+        
+        // Update UI if state changed (incremental update preserves animation state)
+        if needs_update {
+            let new_ui = build_test_ui(&welcome_text);
+            ui_tree.update_root(&new_ui);
         }
 
         // Update animations
@@ -111,7 +124,7 @@ fn main() {
     }
 }
 
-fn build_test_ui() -> impl Widget {
+fn build_test_ui(welcome_text: &str) -> impl Widget {
     SizedBox::expand().with_child(Center::new(
         Column::new()
             .with_main_axis_alignment(MainAxisAlignment::Center)
@@ -120,7 +133,7 @@ fn build_test_ui() -> impl Widget {
                 // Fade in animation example
                 FadeTransition::visible(
                     Container::new().with_padding_all(10f32).child(
-                        Text::new("Welcome to Hoshimi!")
+                        Text::new(welcome_text)
                             .with_size(32f32)
                             .with_color(Color::white()),
                     ),
@@ -213,4 +226,14 @@ fn handle_ui_message(message: &UIMessage) {
             );
         }
     }
+}
+
+fn reforward_animation(message: &UIMessage, welcome_text: &mut String) -> bool {
+    if let UIMessage::Gesture { id, kind: GestureKind::Tap } = message {
+        if id == "test_button" {
+            *welcome_text = String::from("Look forward to your dream");
+            return true;
+        }
+    }
+    false
 }

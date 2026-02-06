@@ -290,10 +290,6 @@ impl RenderObject for PositionedRenderObject {
         self.child = child;
         self.state.mark_needs_layout();
     }
-    
-    fn child_count(&self) -> usize {
-        1
-    }
 }
 
 impl PositionedRenderObject {

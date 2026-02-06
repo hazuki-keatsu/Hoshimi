@@ -339,8 +339,4 @@ impl RenderObject for GestureDetectorRenderObject {
     fn add_child(&mut self, child: Box<dyn RenderObject>) {
         self.child = child;
     }
-    
-    fn child_count(&self) -> usize {
-        1
-    }
 }

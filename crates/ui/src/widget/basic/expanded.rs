@@ -148,10 +148,6 @@ impl RenderObject for ExpandedRenderObject {
         self.child = child;
         self.state.mark_needs_layout();
     }
-    
-    fn child_count(&self) -> usize {
-        1
-    }
 }
 
 /// Flexible widget with configurable fit behavior
@@ -326,9 +322,5 @@ impl RenderObject for FlexibleRenderObject {
     fn add_child(&mut self, child: Box<dyn RenderObject>) {
         self.child = child;
         self.state.mark_needs_layout();
-    }
-    
-    fn child_count(&self) -> usize {
-        1
     }
 }
