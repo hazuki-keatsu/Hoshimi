@@ -74,7 +74,7 @@ pub use events::{EventResult, InputEvent, UIMessage};
 pub use key::WidgetKey;
 pub use painter::{Painter, TextMeasurer};
 pub use render::{RenderObject, RenderObjectState};
-pub use tree::UiTree;
+pub use tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
 pub use widget::Widget;
 
 #[doc(hidden)]
@@ -91,7 +91,7 @@ pub mod prelude {
     pub use crate::key::{WidgetIdentity, WidgetKey};
     pub use crate::painter::{Painter, TextMeasurer};
     pub use crate::render::{RenderObject, RenderObjectState};
-    pub use crate::tree::UiTree;
+    pub use crate::tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
     pub use crate::widget::Widget;
 
     // Animation
