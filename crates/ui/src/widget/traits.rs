@@ -68,26 +68,3 @@ pub trait Widget: Debug + Any {
     /// Convert to Any for down-casting
     fn as_any(&self) -> &dyn Any;
 }
-
-// /// Extension trait for Widget type operations
-// pub trait WidgetExt: Widget {
-//     /// Downcast to a concrete widget type
-//     fn downcast_ref<T: Widget>(&self) -> Option<&T> {
-//         self.as_any().downcast_ref::<T>()
-//     }
-    
-//     /// Check if this is a specific widget type
-//     fn is<T: Widget>(&self) -> bool {
-//         self.as_any().is::<T>()
-//     }
-// }
-
-// impl<W: Widget> WidgetExt for W {}
-
-// /// A boxed widget for dynamic dispatch
-// pub type BoxedWidget = Box<dyn Widget>;
-
-// /// Trait for widgets that can be cloned
-// pub trait CloneWidget: Widget {
-//     fn clone_widget(&self) -> BoxedWidget;
-// }
