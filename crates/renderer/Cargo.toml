@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-hoshimi_shared = { path = "../shared" }
+hoshimi_shared = { path = "../shared", features = ["skia"] }
 skia-safe = { workspace = true }

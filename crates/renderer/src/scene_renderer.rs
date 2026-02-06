@@ -15,8 +15,8 @@
 //! ```ignore
 //! // Widget manages its own state
 //! struct MyButton {
-//!     rect: UIRect,
-//!     color: UIColor,
+//!     rect: Rect,
+//!     color: Color,
 //!     text: String,
 //! }
 //!
@@ -24,7 +24,7 @@
 //!     fn render(&self, renderer: &mut SceneRenderer) -> RendererResult<()> {
 //!         // Pass state directly to draw calls
 //!         renderer.fill_rect(self.rect, self.color)?;
-//!         renderer.draw_text(&self.text, pos, 16.0, UIColor::white())?;
+//!         renderer.draw_text(&self.text, pos, 16.0, Color::white())?;
 //!         Ok(())
 //!     }
 //! }
@@ -37,12 +37,12 @@ use skia_safe::gpu::gl::FramebufferInfo;
 use skia_safe::gpu::{Protected, SurfaceOrigin};
 use skia_safe::paint::Style as PaintStyle;
 use skia_safe::{
-    gpu, Canvas, Color, ColorType, Data, Font, FontMgr, Image, Paint, Point, RRect, Rect, Surface,
-    Typeface,
+    gpu, Canvas, Color as SkiaColor, ColorType, Data, Font, FontMgr, Image, Paint, Point,
+    Rect as SkiaRect, Surface, Typeface,
 };
 
 use crate::error::{RendererError, RendererResult};
-use crate::types::{UIColor, UIPoint, UIRect, UIRoundRect, UISize};
+use crate::types::{Color, Offset, Rect, Size, rect_to_rrect_uniform};
 
 /// SceneRenderer - A stateless rendering API
 ///
@@ -109,8 +109,8 @@ impl SceneRenderer {
     }
 
     /// Get the renderer size
-    pub fn size(&self) -> UISize {
-        UISize::new(self.width as f32, self.height as f32)
+    pub fn size(&self) -> Size {
+        Size::new(self.width as f32, self.height as f32)
     }
 
     /// Resize the renderer
@@ -128,9 +128,9 @@ impl SceneRenderer {
     ///
     /// ## Arguments
     /// * `clear_color` - Optional background color to clear with
-    pub fn begin_frame(&mut self, clear_color: Option<UIColor>) -> RendererResult<()> {
+    pub fn begin_frame(&mut self, clear_color: Option<Color>) -> RendererResult<()> {
         if let Some(color) = clear_color {
-            self.surface.canvas().clear(Color::from(color));
+            self.surface.canvas().clear(SkiaColor::from(color));
         }
         Ok(())
     }
@@ -168,9 +168,9 @@ impl SceneRenderer {
     // ==================== Shape Drawing ====================
 
     /// Fill a rectangle with the specified color
-    pub fn fill_rect(&mut self, rect: UIRect, color: UIColor) -> RendererResult<()> {
+    pub fn fill_rect(&mut self, rect: Rect, color: Color) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
-        let skia_rect: Rect = rect.into();
+        let skia_rect: SkiaRect = rect.into();
         self.canvas().draw_rect(skia_rect, &paint);
         Ok(())
     }
@@ -178,12 +178,12 @@ impl SceneRenderer {
     /// Stroke a rectangle outline
     pub fn stroke_rect(
         &mut self,
-        rect: UIRect,
-        color: UIColor,
+        rect: Rect,
+        color: Color,
         stroke_width: f32,
     ) -> RendererResult<()> {
         let paint = Self::create_stroke_paint(color, stroke_width);
-        let skia_rect: Rect = rect.into();
+        let skia_rect: SkiaRect = rect.into();
         self.canvas().draw_rect(skia_rect, &paint);
         Ok(())
     }
@@ -191,13 +191,12 @@ impl SceneRenderer {
     /// Fill a rounded rectangle
     pub fn fill_rounded_rect(
         &mut self,
-        rect: UIRect,
+        rect: Rect,
         radius: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
-        let rrect = UIRoundRect::new(rect, radius);
-        let skia_rrect: RRect = rrect.into();
+        let skia_rrect = rect_to_rrect_uniform(rect, radius);
         self.canvas().draw_rrect(skia_rrect, &paint);
         Ok(())
     }
@@ -205,20 +204,19 @@ impl SceneRenderer {
     /// Stroke a rounded rectangle outline
     pub fn stroke_rounded_rect(
         &mut self,
-        rect: UIRect,
+        rect: Rect,
         radius: f32,
-        color: UIColor,
+        color: Color,
         stroke_width: f32,
     ) -> RendererResult<()> {
         let paint = Self::create_stroke_paint(color, stroke_width);
-        let rrect = UIRoundRect::new(rect, radius);
-        let skia_rrect: RRect = rrect.into();
+        let skia_rrect = rect_to_rrect_uniform(rect, radius);
         self.canvas().draw_rrect(skia_rrect, &paint);
         Ok(())
     }
 
     /// Fill a circle
-    pub fn fill_circle(&mut self, center: UIPoint, radius: f32, color: UIColor) -> RendererResult<()> {
+    pub fn fill_circle(&mut self, center: Offset, radius: f32, color: Color) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
         let skia_center: Point = center.into();
         self.canvas().draw_circle(skia_center, radius, &paint);
@@ -228,9 +226,9 @@ impl SceneRenderer {
     /// Stroke a circle outline
     pub fn stroke_circle(
         &mut self,
-        center: UIPoint,
+        center: Offset,
         radius: f32,
-        color: UIColor,
+        color: Color,
         stroke_width: f32,
     ) -> RendererResult<()> {
         let paint = Self::create_stroke_paint(color, stroke_width);
@@ -240,9 +238,9 @@ impl SceneRenderer {
     }
 
     /// Fill an oval/ellipse
-    pub fn fill_oval(&mut self, rect: UIRect, color: UIColor) -> RendererResult<()> {
+    pub fn fill_oval(&mut self, rect: Rect, color: Color) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
-        let skia_rect: Rect = rect.into();
+        let skia_rect: SkiaRect = rect.into();
         self.canvas().draw_oval(skia_rect, &paint);
         Ok(())
     }
@@ -250,9 +248,9 @@ impl SceneRenderer {
     /// Draw a line
     pub fn draw_line(
         &mut self,
-        start: UIPoint,
-        end: UIPoint,
-        color: UIColor,
+        start: Offset,
+        end: Offset,
+        color: Color,
         stroke_width: f32,
     ) -> RendererResult<()> {
         let paint = Self::create_stroke_paint(color, stroke_width);
@@ -268,20 +266,23 @@ impl SceneRenderer {
     ///
     /// ## Arguments
     /// * `text` - The text to draw
-    /// * `pos` - Position (baseline origin)
+    /// * `pos` - Position (top-left corner of text bounding box)
     /// * `font_size` - Font size in points
     /// * `color` - Text color
     pub fn draw_text(
         &mut self,
         text: &str,
-        pos: UIPoint,
+        pos: Offset,
         font_size: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
-        let font = Self::create_font(font_size);
-        let skia_pos: Point = pos.into();
-        self.canvas().draw_str(text, skia_pos, &font, &paint);
+        let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
+        // Convert from top-left to baseline position
+        // Skia's draw_str uses baseline position, but we receive top-left
+        let metrics = font.metrics();
+        let baseline_y = pos.y - metrics.1.ascent;
+        self.canvas().draw_str(text, (pos.x, baseline_y), &font, &paint);
         Ok(())
     }
 
@@ -289,10 +290,10 @@ impl SceneRenderer {
     pub fn draw_text_with_font(
         &mut self,
         text: &str,
-        pos: UIPoint,
+        pos: Offset,
         font_path: &str,
         font_size: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
         let typeface = self.get_or_load_font(font_path)?;
@@ -306,12 +307,12 @@ impl SceneRenderer {
     pub fn draw_text_centered(
         &mut self,
         text: &str,
-        rect: UIRect,
+        rect: Rect,
         font_size: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let paint = Self::create_fill_paint(color);
-        let font = Self::create_font(font_size);
+        let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
 
         let (text_width, _) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
@@ -324,28 +325,30 @@ impl SceneRenderer {
     }
 
     /// Measure text dimensions
-    pub fn measure_text(&self, text: &str, font_size: f32) -> UISize {
-        let font = Self::create_font(font_size);
+    pub fn measure_text(&self, text: &str, font_size: f32) -> Size {
+        let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
         let (width, bounds) = font.measure_str(text, None::<&Paint>);
-        UISize::new(width, bounds.height())
+        Size::new(width, bounds.height())
     }
 
     /// Draw text with a font by cache key (for use with load_font_from_data)
     pub fn draw_text_with_font_key(
         &mut self,
         text: &str,
-        pos: UIPoint,
+        pos: Offset,
         font_key: &str,
         font_size: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let typeface = self.font_cache.get(font_key)
             .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?
             .clone();
         let paint = Self::create_fill_paint(color);
         let font = Font::from_typeface(typeface, font_size);
-        let skia_pos: Point = pos.into();
-        self.canvas().draw_str(text, skia_pos, &font, &paint);
+        // Convert from top-left to baseline position
+        let metrics = font.metrics();
+        let baseline_y = pos.y - metrics.1.ascent;
+        self.canvas().draw_str(text, (pos.x, baseline_y), &font, &paint);
         Ok(())
     }
 
@@ -353,10 +356,10 @@ impl SceneRenderer {
     pub fn draw_text_centered_with_font_key(
         &mut self,
         text: &str,
-        rect: UIRect,
+        rect: Rect,
         font_key: &str,
         font_size: f32,
-        color: UIColor,
+        color: Color,
     ) -> RendererResult<()> {
         let typeface = self.font_cache.get(font_key)
             .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?
@@ -375,18 +378,18 @@ impl SceneRenderer {
     }
 
     /// Measure text dimensions with a specific font by cache key
-    pub fn measure_text_with_font_key(&self, text: &str, font_key: &str, font_size: f32) -> RendererResult<UISize> {
+    pub fn measure_text_with_font_key(&self, text: &str, font_key: &str, font_size: f32) -> RendererResult<Size> {
         let typeface = self.font_cache.get(font_key)
             .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?;
         let font = Font::from_typeface(typeface, font_size);
         let (width, bounds) = font.measure_str(text, None::<&Paint>);
-        Ok(UISize::new(width, bounds.height()))
+        Ok(Size::new(width, bounds.height()))
     }
 
     // ==================== Image Drawing ====================
 
     /// Draw an image at the specified position
-    pub fn draw_image(&mut self, path: &str, pos: UIPoint) -> RendererResult<()> {
+    pub fn draw_image(&mut self, path: &str, pos: Offset) -> RendererResult<()> {
         let image = self.get_or_load_image(path)?;
         let skia_pos: Point = pos.into();
         self.canvas().draw_image(&image, skia_pos, None);
@@ -394,7 +397,7 @@ impl SceneRenderer {
     }
 
     /// Draw an image with opacity
-    pub fn draw_image_with_alpha(&mut self, path: &str, pos: UIPoint, alpha: f32) -> RendererResult<()> {
+    pub fn draw_image_with_alpha(&mut self, path: &str, pos: Offset, alpha: f32) -> RendererResult<()> {
         let image = self.get_or_load_image(path)?;
         let paint = Self::create_alpha_paint(alpha);
         let skia_pos: Point = pos.into();
@@ -403,9 +406,9 @@ impl SceneRenderer {
     }
 
     /// Draw an image scaled to fit a rectangle
-    pub fn draw_image_rect(&mut self, path: &str, dest_rect: UIRect) -> RendererResult<()> {
+    pub fn draw_image_rect(&mut self, path: &str, dest_rect: Rect) -> RendererResult<()> {
         let image = self.get_or_load_image(path)?;
-        let skia_dest: Rect = dest_rect.into();
+        let skia_dest: SkiaRect = dest_rect.into();
         self.canvas()
             .draw_image_rect(&image, None, skia_dest, &Paint::default());
         Ok(())
@@ -415,12 +418,12 @@ impl SceneRenderer {
     pub fn draw_image_rect_src(
         &mut self,
         path: &str,
-        src_rect: UIRect,
-        dest_rect: UIRect,
+        src_rect: Rect,
+        dest_rect: Rect,
     ) -> RendererResult<()> {
         let image = self.get_or_load_image(path)?;
-        let skia_src: Rect = src_rect.into();
-        let skia_dest: Rect = dest_rect.into();
+        let skia_src: SkiaRect = src_rect.into();
+        let skia_dest: SkiaRect = dest_rect.into();
         self.canvas().draw_image_rect(
             &image,
             Some((&skia_src, skia_safe::canvas::SrcRectConstraint::Strict)),
@@ -431,7 +434,7 @@ impl SceneRenderer {
     }
 
     /// Draw an image by cache key (for use with load_image_from_data)
-    pub fn draw_image_by_key(&mut self, key: &str, pos: UIPoint) -> RendererResult<()> {
+    pub fn draw_image_by_key(&mut self, key: &str, pos: Offset) -> RendererResult<()> {
         let image = self.image_cache.get(key)
             .ok_or_else(|| RendererError::ImageLoadFailed(format!("Image '{}' not found in cache", key)))?
             .clone();
@@ -444,7 +447,7 @@ impl SceneRenderer {
     pub fn draw_image_by_key_with_alpha(
         &mut self,
         key: &str,
-        pos: UIPoint,
+        pos: Offset,
         alpha: f32,
     ) -> RendererResult<()> {
         let image = self.image_cache.get(key)
@@ -457,11 +460,11 @@ impl SceneRenderer {
     }
 
     /// Draw an image by cache key scaled to fit a rectangle
-    pub fn draw_image_by_key_rect(&mut self, key: &str, dest_rect: UIRect) -> RendererResult<()> {
+    pub fn draw_image_by_key_rect(&mut self, key: &str, dest_rect: Rect) -> RendererResult<()> {
         let image = self.image_cache.get(key)
             .ok_or_else(|| RendererError::ImageLoadFailed(format!("Image '{}' not found in cache", key)))?
             .clone();
-        let skia_dest: Rect = dest_rect.into();
+        let skia_dest: SkiaRect = dest_rect.into();
         self.canvas()
             .draw_image_rect(&image, None, skia_dest, &Paint::default());
         Ok(())
@@ -471,14 +474,14 @@ impl SceneRenderer {
     pub fn draw_image_by_key_rect_src(
         &mut self,
         key: &str,
-        src_rect: UIRect,
-        dest_rect: UIRect,
+        src_rect: Rect,
+        dest_rect: Rect,
     ) -> RendererResult<()> {
         let image = self.image_cache.get(key)
             .ok_or_else(|| RendererError::ImageLoadFailed(format!("Image '{}' not found in cache", key)))?
             .clone();
-        let skia_src: Rect = src_rect.into();
-        let skia_dest: Rect = dest_rect.into();
+        let skia_src: SkiaRect = src_rect.into();
+        let skia_dest: SkiaRect = dest_rect.into();
         self.canvas().draw_image_rect(
             &image,
             Some((&skia_src, skia_safe::canvas::SrcRectConstraint::Strict)),
@@ -501,7 +504,7 @@ impl SceneRenderer {
     }
 
     /// Rotate around a point
-    pub fn rotate_around(&mut self, degrees: f32, center: UIPoint) {
+    pub fn rotate_around(&mut self, degrees: f32, center: Offset) {
         let skia_center: Point = center.into();
         self.canvas().rotate(degrees, Some(skia_center));
     }
@@ -514,16 +517,15 @@ impl SceneRenderer {
     // ==================== Clipping ====================
 
     /// Set a rectangular clip region
-    pub fn clip_rect(&mut self, rect: UIRect) {
-        let skia_rect: Rect = rect.into();
+    pub fn clip_rect(&mut self, rect: Rect) {
+        let skia_rect: SkiaRect = rect.into();
         self.canvas()
             .clip_rect(skia_rect, skia_safe::ClipOp::Intersect, true);
     }
 
     /// Set a rounded rectangle clip region
-    pub fn clip_rounded_rect(&mut self, rect: UIRect, radius: f32) {
-        let rrect = UIRoundRect::new(rect, radius);
-        let skia_rrect: RRect = rrect.into();
+    pub fn clip_rounded_rect(&mut self, rect: Rect, radius: f32) {
+        let skia_rrect = rect_to_rrect_uniform(rect, radius);
         self.canvas()
             .clip_rrect(skia_rrect, skia_safe::ClipOp::Intersect, true);
     }
@@ -583,6 +585,11 @@ impl SceneRenderer {
         self.image_cache.contains_key(key)
     }
 
+    /// Get the size of a cached image
+    pub fn get_image_size(&self, key: &str) -> Option<(i32, i32)> {
+        self.image_cache.get(key).map(|img| (img.width(), img.height()))
+    }
+
     /// Check if a font is loaded in cache
     pub fn has_font(&self, key: &str) -> bool {
         self.font_cache.contains_key(key)
@@ -612,17 +619,17 @@ impl SceneRenderer {
         self.surface.canvas()
     }
 
-    fn create_fill_paint(color: UIColor) -> Paint {
+    fn create_fill_paint(color: Color) -> Paint {
         let mut paint = Paint::default();
-        paint.set_color(Color::from(color));
+        paint.set_color(SkiaColor::from(color));
         paint.set_style(PaintStyle::Fill);
         paint.set_anti_alias(true);
         paint
     }
 
-    fn create_stroke_paint(color: UIColor, stroke_width: f32) -> Paint {
+    fn create_stroke_paint(color: Color, stroke_width: f32) -> Paint {
         let mut paint = Paint::default();
-        paint.set_color(Color::from(color));
+        paint.set_color(SkiaColor::from(color));
         paint.set_style(PaintStyle::Stroke);
         paint.set_stroke_width(stroke_width);
         paint.set_anti_alias(true);
@@ -636,7 +643,23 @@ impl SceneRenderer {
         paint
     }
 
-    fn create_font(size: f32) -> Font {
+    fn create_font_with_mgr(font_mgr: &FontMgr, size: f32) -> Font {
+        // Try to find a system font that supports common characters
+        // On Windows, try common fonts in order of preference
+        let font_names = [
+            "Microsoft YaHei",  // Windows Chinese
+            "Segoe UI",         // Windows default
+            "Arial",            // Common fallback
+            "sans-serif",       // Generic
+        ];
+        
+        for name in &font_names {
+            if let Some(typeface) = font_mgr.match_family_style(name, skia_safe::FontStyle::default()) {
+                return Font::from_typeface(typeface, size);
+            }
+        }
+        
+        // Fallback to default font
         Font::default().with_size(size).unwrap_or_default()
     }
 

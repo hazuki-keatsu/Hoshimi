@@ -192,6 +192,7 @@ dependencies = [
  "gl",
  "hoshimi_renderer",
  "hoshimi_shared",
+ "hoshimi_ui",
  "sdl3",
  "tracing",
  "tracing-subscriber",
@@ -209,8 +210,18 @@ dependencies = [
 name = "hoshimi_shared"
 version = "0.1.0"
 dependencies = [
+ "skia-safe",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "hoshimi_ui"
+version = "0.1.0"
+dependencies = [
+ "hoshimi_renderer",
+ "hoshimi_shared",
+ "tracing",
 ]
 
 [[package]]

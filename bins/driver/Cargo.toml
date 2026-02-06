@@ -13,4 +13,5 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 hoshimi_renderer = { path = "../../crates/renderer" }
 hoshimi_shared ={ path = "../../crates/shared" }
+hoshimi_ui = { path = "../../crates/ui" }
 gl = { workspace = true }

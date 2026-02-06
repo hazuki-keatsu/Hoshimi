@@ -3,6 +3,11 @@ name = "hoshimi_shared"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+skia = ["dep:skia-safe"]
+
 [dependencies]
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+skia-safe = { workspace = true, optional = true }

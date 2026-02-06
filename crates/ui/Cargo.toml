@@ -1,0 +1,9 @@
+[package]
+name = "hoshimi_ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hoshimi_shared = { path = "../shared" }
+hoshimi_renderer = { path = "../renderer" }
+tracing = { workspace = true }

@@ -6,20 +6,19 @@
 //! 
 //! ## Structure
 //! 
-//! - `types` - Basic UI Elements
+//! - `types` - Re-exported shared types and renderer-specific types
 //! - `error` - Error Types
 //! - `scene_renderer` - Scene Renderer Core
 //! 
 //! ## Example
 //! 
 //! ```ignore
-//! use hoshimi_renderer::{SceneRenderer, UIColor, UIRect};
+//! use hoshimi_renderer::{SceneRenderer, Color, Rect};
 //! 
 //! let mut renderer = SceneRenderer::new(1920, 1080)?;
 //! 
-//! renderer.begin_frame(Some(UIColor::black()))?;
-//! renderer.set_color(UIColor::red())?;
-//! renderer.draw_rect(UIRect::from_xywh(100.0, 100.0, 200.0, 150.0))?;
+//! renderer.begin_frame(Some(Color::black()))?;
+//! renderer.fill_rect(Rect::new(100.0, 100.0, 200.0, 150.0), Color::red())?;
 //! renderer.end_frame()?;
 //! ```
 

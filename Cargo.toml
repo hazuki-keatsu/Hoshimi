@@ -4,6 +4,7 @@ members = [
     "bins/driver",
     "crates/renderer",
     "crates/shared",
+    "crates/ui",
 ]
 resolver = "2"
 
