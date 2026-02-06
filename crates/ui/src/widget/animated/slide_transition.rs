@@ -4,13 +4,13 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_shared::{Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// Direction for slide transitions
@@ -142,15 +142,17 @@ impl Widget for SlideTransition {
     }
 
     fn create_render_object(&self) -> Box<dyn RenderObject> {
+        // Start from off-screen if visible=true (will animate in on_mount)
         Box::new(SlideTransitionRenderObject {
             state: RenderObjectState::default(),
             child: self.child.create_render_object(),
-            slide_progress: if self.visible { 0.0 } else { 1.0 },
+            slide_progress: if self.visible { 1.0 } else { 1.0 },
             visible: self.visible,
             direction: self.direction,
             controller: None,
             duration: self.duration,
             curve: self.curve,
+            needs_entrance_animation: self.visible,
         })
     }
 
@@ -191,6 +193,8 @@ pub struct SlideTransitionRenderObject {
     controller: Option<AnimationController<f32>>,
     duration: f32,
     curve: Curve,
+    /// Whether entrance animation should play on mount
+    needs_entrance_animation: bool,
 }
 
 impl SlideTransitionRenderObject {
@@ -210,24 +214,6 @@ impl SlideTransitionRenderObject {
         self.controller = Some(controller);
     }
 
-    /// Update animation state (call each frame)
-    pub fn update(&mut self, delta: f32) {
-        if let Some(ref mut controller) = self.controller {
-            controller.update(delta);
-            self.slide_progress = controller.value();
-            
-            if controller.is_completed() {
-                self.slide_progress = if self.visible { 0.0 } else { 1.0 };
-                self.controller = None;
-            }
-        }
-    }
-
-    /// Check if animation is in progress
-    pub fn is_animating(&self) -> bool {
-        self.controller.as_ref().map_or(false, |c| c.is_animating())
-    }
-
     /// Check if currently visible (not fully slid out)
     pub fn is_visible(&self) -> bool {
         self.slide_progress < 1.0
@@ -243,14 +229,43 @@ impl SlideTransitionRenderObject {
     }
 }
 
-impl RenderObject for SlideTransitionRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        let child_size = self.child.layout(constraints);
-        self.child.set_offset(Offset::ZERO);
-        self.state.size = child_size;
-        child_size
+impl Animatable for SlideTransitionRenderObject {
+    fn update(&mut self, delta: f32) {
+        if let Some(ref mut controller) = self.controller {
+            controller.update(delta);
+            self.slide_progress = controller.value();
+            
+            if controller.is_completed() {
+                self.slide_progress = if self.visible { 0.0 } else { 1.0 };
+                self.controller = None;
+            }
+        }
     }
 
+    fn is_animating(&self) -> bool {
+        self.controller.as_ref().map_or(false, |c| c.is_animating())
+    }
+}
+
+impl RenderObject for SlideTransitionRenderObject {
+    // Custom layout to start animation after first layout
+    fn layout(&mut self, constraints: hoshimi_shared::Constraints) -> hoshimi_shared::Size {
+        let child_size = self.child.layout(constraints);
+        self.child.set_offset(hoshimi_shared::Offset::ZERO);
+        self.state.size = child_size;
+        
+        // Start entrance animation after first layout when size is known
+        if self.needs_entrance_animation && child_size.width > 0.0 && child_size.height > 0.0 {
+            self.needs_entrance_animation = false;
+            self.start_animation();
+        }
+        
+        child_size
+    }
+    
+    crate::impl_animated_tick!(state, child);
+
+    // Custom get_rect to include slide offset
     fn get_rect(&self) -> Rect {
         let offset = self.current_offset();
         Rect::new(
@@ -279,6 +294,8 @@ impl RenderObject for SlideTransitionRenderObject {
         }
 
         painter.save();
+        // First translate to own position, then apply slide offset
+        painter.translate(self.state.offset);
         let offset = self.current_offset();
         painter.translate(offset);
         self.child.paint(painter);
@@ -298,6 +315,7 @@ impl RenderObject for SlideTransitionRenderObject {
         self.child.hit_test(local)
     }
 
+    // Custom handle_event: ignore events when not fully visible
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         if self.slide_progress > 0.0 {
             return EventResult::Ignored;
@@ -307,6 +325,7 @@ impl RenderObject for SlideTransitionRenderObject {
 
     fn on_mount(&mut self) {
         self.child.on_mount();
+        // Note: entrance animation is started in layout() after size is known
     }
 
     fn on_unmount(&mut self) {

@@ -4,4 +4,4 @@
 
 mod traits;
 
-pub use traits::{RenderObject, RenderObjectState};
+pub use traits::{Animatable, RenderObject, RenderObjectState};

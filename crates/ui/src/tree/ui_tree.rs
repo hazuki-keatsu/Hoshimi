@@ -246,6 +246,34 @@ impl UiTree {
         }
     }
     
+    /// Update all animations in the tree with the given delta time
+    /// 
+    /// This should be called every frame before painting to advance animations.
+    /// Returns `true` if any animation is still running (needs more frames).
+    /// 
+    /// # Arguments
+    /// * `delta` - Time elapsed since last frame in seconds
+    /// 
+    /// # Example
+    /// ```ignore
+    /// let delta = (now - last_time).as_secs_f32();
+    /// if ui_tree.tick(delta) {
+    ///     // Animations are running, need to keep rendering
+    /// }
+    /// ui_tree.paint(&mut painter);
+    /// ```
+    pub fn tick(&mut self, delta: f32) -> bool {
+        if let Some(ref mut root) = self.root {
+            let animating = root.tick(delta);
+            if animating {
+                self.needs_paint = true;
+            }
+            animating
+        } else {
+            false
+        }
+    }
+    
     /// Handle input event
     pub fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         if let Some(ref mut root) = self.root {

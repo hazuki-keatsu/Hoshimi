@@ -4,13 +4,13 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_shared::{Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
-use crate::events::{EventResult, HitTestResult, InputEvent};
+use crate::events::{HitTestResult};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// A widget that animates the position of its child
@@ -142,8 +142,14 @@ impl AnimatedPositionRenderObject {
         self.controller = Some(controller);
     }
 
-    /// Update animation state (call each frame)
-    pub fn update(&mut self, delta: f32) {
+    /// Get current position offset
+    pub fn current_position(&self) -> Offset {
+        self.current_position
+    }
+}
+
+impl Animatable for AnimatedPositionRenderObject {
+    fn update(&mut self, delta: f32) {
         if let Some(ref mut controller) = self.controller {
             controller.update(delta);
             self.current_position = controller.value();
@@ -155,25 +161,17 @@ impl AnimatedPositionRenderObject {
         }
     }
 
-    /// Check if animation is in progress
-    pub fn is_animating(&self) -> bool {
+    fn is_animating(&self) -> bool {
         self.controller.as_ref().map_or(false, |c| c.is_animating())
-    }
-
-    /// Get current position offset
-    pub fn current_position(&self) -> Offset {
-        self.current_position
     }
 }
 
 impl RenderObject for AnimatedPositionRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        let child_size = self.child.layout(constraints);
-        self.child.set_offset(Offset::ZERO);
-        self.state.size = child_size;
-        child_size
-    }
+    crate::impl_single_child_layout!(state, child);
+    crate::impl_animated_tick!(state, child);
+    crate::impl_single_child_render_object!(child);
 
+    // Custom get_rect to include animated position offset
     fn get_rect(&self) -> Rect {
         Rect::new(
             self.state.offset.x + self.current_position.x,
@@ -197,6 +195,8 @@ impl RenderObject for AnimatedPositionRenderObject {
 
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
+        // First translate to own position, then apply animated position offset
+        painter.translate(self.state.offset);
         painter.translate(self.current_position);
         self.child.paint(painter);
         painter.restore();
@@ -208,26 +208,6 @@ impl RenderObject for AnimatedPositionRenderObject {
             position.y - self.state.offset.y - self.current_position.y,
         );
         self.child.hit_test(local)
-    }
-
-    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
-        self.child.handle_event(event)
-    }
-
-    fn on_mount(&mut self) {
-        self.child.on_mount();
-    }
-
-    fn on_unmount(&mut self) {
-        self.child.on_unmount();
-    }
-
-    fn children(&self) -> Vec<&dyn RenderObject> {
-        vec![self.child.as_ref()]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
-        vec![self.child.as_mut()]
     }
 
     fn needs_layout(&self) -> bool {

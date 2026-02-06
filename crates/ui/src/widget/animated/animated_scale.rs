@@ -4,13 +4,13 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Alignment, Constraints, Offset, Rect, Size};
+use hoshimi_shared::{Alignment, Offset};
 
 use crate::animation::{AnimationController, Curve, Tween};
-use crate::events::{EventResult, HitTestResult, InputEvent};
+use crate::events::{HitTestResult};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// A widget that animates the scale of its child
@@ -82,15 +82,17 @@ impl Widget for AnimatedScale {
     }
 
     fn create_render_object(&self) -> Box<dyn RenderObject> {
+        // Start from scale 0 (will animate to target on_mount)
         Box::new(AnimatedScaleRenderObject {
             state: RenderObjectState::default(),
             child: self.child.create_render_object(),
-            current_scale: self.scale,
+            current_scale: 0.0,
             target_scale: self.scale,
             controller: None,
             duration: self.duration,
             curve: self.curve,
             alignment: self.alignment,
+            needs_entrance_animation: true,
         })
     }
 
@@ -131,6 +133,8 @@ pub struct AnimatedScaleRenderObject {
     duration: f32,
     curve: Curve,
     alignment: Alignment,
+    /// Whether entrance animation should play on mount
+    needs_entrance_animation: bool,
 }
 
 impl AnimatedScaleRenderObject {
@@ -142,24 +146,6 @@ impl AnimatedScaleRenderObject {
         let mut controller = AnimationController::new(tween);
         controller.play();
         self.controller = Some(controller);
-    }
-
-    /// Update animation state (call each frame)
-    pub fn update(&mut self, delta: f32) {
-        if let Some(ref mut controller) = self.controller {
-            controller.update(delta);
-            self.current_scale = controller.value();
-            
-            if controller.is_completed() {
-                self.current_scale = self.target_scale;
-                self.controller = None;
-            }
-        }
-    }
-
-    /// Check if animation is in progress
-    pub fn is_animating(&self) -> bool {
-        self.controller.as_ref().map_or(false, |c| c.is_animating())
     }
 
     /// Get current scale
@@ -179,28 +165,48 @@ impl AnimatedScaleRenderObject {
     }
 }
 
+impl Animatable for AnimatedScaleRenderObject {
+    fn update(&mut self, delta: f32) {
+        if let Some(ref mut controller) = self.controller {
+            controller.update(delta);
+            self.current_scale = controller.value();
+            
+            if controller.is_completed() {
+                self.current_scale = self.target_scale;
+                self.controller = None;
+            }
+        }
+    }
+
+    fn is_animating(&self) -> bool {
+        self.controller.as_ref().map_or(false, |c| c.is_animating())
+    }
+}
+
 impl RenderObject for AnimatedScaleRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        let child_size = self.child.layout(constraints);
-        self.child.set_offset(Offset::ZERO);
-        self.state.size = child_size;
-        child_size
+    crate::impl_single_child_layout!(state, child);
+    crate::impl_animated_tick!(state, child);
+    crate::impl_render_object_common!(state);
+
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+        // Start entrance animation when mounted (AnimatedScale doesn't need size for animation)
+        if self.needs_entrance_animation {
+            self.needs_entrance_animation = false;
+            self.start_animation();
+        }
     }
 
-    fn get_rect(&self) -> Rect {
-        self.state.get_rect()
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
     }
 
-    fn set_offset(&mut self, offset: Offset) {
-        self.state.offset = offset;
+    fn children(&self) -> Vec<&dyn RenderObject> {
+        vec![self.child.as_ref()]
     }
 
-    fn get_offset(&self) -> Offset {
-        self.state.offset
-    }
-
-    fn get_size(&self) -> Size {
-        self.state.size
+    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
+        vec![self.child.as_mut()]
     }
 
     fn paint(&self, painter: &mut dyn Painter) {
@@ -209,6 +215,9 @@ impl RenderObject for AnimatedScaleRenderObject {
         }
 
         painter.save();
+        
+        // First translate to own position
+        painter.translate(self.state.offset);
         
         // Move to scale origin, scale, then move back
         let origin = self.scale_origin();
@@ -232,49 +241,5 @@ impl RenderObject for AnimatedScaleRenderObject {
             (position.y - self.state.offset.y - origin.y) / self.current_scale + origin.y,
         );
         self.child.hit_test(local)
-    }
-
-    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
-        self.child.handle_event(event)
-    }
-
-    fn on_mount(&mut self) {
-        self.child.on_mount();
-    }
-
-    fn on_unmount(&mut self) {
-        self.child.on_unmount();
-    }
-
-    fn children(&self) -> Vec<&dyn RenderObject> {
-        vec![self.child.as_ref()]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
-        vec![self.child.as_mut()]
-    }
-
-    fn needs_layout(&self) -> bool {
-        self.state.needs_layout
-    }
-
-    fn mark_needs_layout(&mut self) {
-        self.state.needs_layout = true;
-    }
-
-    fn needs_paint(&self) -> bool {
-        self.state.needs_paint
-    }
-
-    fn mark_needs_paint(&mut self) {
-        self.state.needs_paint = true;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }

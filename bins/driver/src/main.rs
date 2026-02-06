@@ -2,7 +2,9 @@ use hoshimi_renderer::{Color, SceneRenderer};
 use hoshimi_shared::logger::{self, ExpectLog};
 use hoshimi_ui::painter::SceneRendererPainter;
 use hoshimi_ui::prelude::*;
+use hoshimi_ui::animation::Curve;
 use sdl3;
+use std::time::Instant;
 
 fn main() {
     // logger subscriber
@@ -52,7 +54,16 @@ fn main() {
     let mut event_pump = sdl_context
         .event_pump()
         .expect_log("Event Pump: Fail to init");
+    
+    // Time tracking for animation
+    let mut last_time = Instant::now();
+    
     'running: loop {
+        // Calculate delta time
+        let now = Instant::now();
+        let delta = (now - last_time).as_secs_f32();
+        last_time = now;
+        
         for event in event_pump.poll_iter() {
             match event {
                 sdl3::event::Event::Quit { .. } => break 'running,
@@ -74,6 +85,9 @@ fn main() {
             }
         }
 
+        // Update animations
+        ui_tree.tick(delta);
+
         renderer
             .begin_frame(Some(Color::from_rgb8(30, 30, 40)))
             .expect_log("Hoshimi Driver: Fail to begin a new frame");
@@ -92,32 +106,49 @@ fn build_test_ui() -> impl Widget {
             .with_main_axis_alignment(MainAxisAlignment::Center)
             .with_cross_axis_alignment(CrossAxisAlignment::Center)
             .child(
-                Container::new().with_padding_all(10f32).child(
-                    Text::new("Welcome to Hoshimi!")
-                        .with_size(32f32)
-                        .with_color(Color::white()),
-                ),
+                // Fade in animation example
+                FadeTransition::visible(
+                    Container::new().with_padding_all(10f32).child(
+                        Text::new("Welcome to Hoshimi!")
+                            .with_size(32f32)
+                            .with_color(Color::white()),
+                    ),
+                )
+                .with_duration(1.0)
+                .with_curve(Curve::EaseOut),
             )
             .child(
-                Container::new().child(
-                    Text::new("This is the UI system test page.")
-                        .with_size(16f32)
-                        .with_color(Color::white()),
-                ),
+                // Slide in animation example
+                SlideTransition::visible(
+                    Container::new().child(
+                        Text::new("This is the UI system test page.")
+                            .with_size(16f32)
+                            .with_color(Color::white()),
+                    ),
+                )
+                .from_left()
+                .with_duration(0.8)
+                .with_curve(Curve::EaseOutCubic),
             )
             .child(
-                Container::new()
-                    .child(
-                        Image::new("logos/logo.png")
-                            .with_fit(ImageFit::Contain)
-                            .with_size(1024f32, 400f32),
-                    )
-                    .with_margin(EdgeInsets {
-                        top: 6f32,
-                        right: 0f32,
-                        bottom: 0f32,
-                        left: 0f32,
-                    }),
+                // Animated scale example
+                AnimatedScale::new(
+                    Container::new()
+                        .child(
+                            Image::new("logos/logo.png")
+                                .with_fit(ImageFit::Contain)
+                                .with_size(1024f32, 400f32),
+                        )
+                        .with_margin(EdgeInsets {
+                            top: 6f32,
+                            right: 0f32,
+                            bottom: 0f32,
+                            left: 0f32,
+                        }),
+                    1.0,
+                )
+                .with_duration(0.6)
+                .with_curve(Curve::EaseOutBack),
             ),
     ))
 }

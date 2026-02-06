@@ -238,19 +238,19 @@ impl Reconciler {
     /// Build a RenderObject tree from a Widget tree
     ///
     /// This is used for initial construction (no diffing needed).
+    /// 
+    /// Note: The widget's `create_render_object` method is responsible for
+    /// recursively creating child RenderObjects. This method just handles
+    /// mounting the tree.
     pub fn build_tree(widget: &dyn Widget) -> Box<dyn RenderObject> {
         debug!("Building render tree from widget: {:?}", std::any::type_name_of_val(widget));
         
-        // Create the root RenderObject
+        // Create the RenderObject tree
+        // Note: create_render_object recursively creates child RenderObjects,
+        // so we don't need to manually iterate over widget.children() here.
         let mut render_object = widget.create_render_object();
         
-        // Build children
-        for child_widget in widget.children() {
-            let child_ro = Self::build_tree(child_widget);
-            render_object.add_child(child_ro);
-        }
-        
-        // Mount
+        // Mount the entire tree
         Self::mount_recursive(render_object.as_mut());
         
         render_object

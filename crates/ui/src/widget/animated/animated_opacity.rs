@@ -8,13 +8,13 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_shared::Offset;
 
 use crate::animation::{AnimationController, Curve, Tween};
-use crate::events::{EventResult, HitTestResult, InputEvent};
+use crate::events::HitTestResult;
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// A widget that animates the opacity of its child
@@ -138,8 +138,14 @@ impl AnimatedOpacityRenderObject {
         self.controller = Some(controller);
     }
 
-    /// Update animation state (call each frame)
-    pub fn update(&mut self, delta: f32) {
+    /// Get current opacity (0.0 to 1.0)
+    pub fn current_opacity(&self) -> f32 {
+        self.current_opacity
+    }
+}
+
+impl Animatable for AnimatedOpacityRenderObject {
+    fn update(&mut self, delta: f32) {
         if let Some(ref mut controller) = self.controller {
             controller.update(delta);
             self.current_opacity = controller.value();
@@ -151,50 +157,31 @@ impl AnimatedOpacityRenderObject {
         }
     }
 
-    /// Check if animation is in progress
-    pub fn is_animating(&self) -> bool {
+    fn is_animating(&self) -> bool {
         self.controller.as_ref().map_or(false, |c| c.is_animating())
-    }
-
-    /// Get current opacity (0.0 to 1.0)
-    pub fn current_opacity(&self) -> f32 {
-        self.current_opacity
     }
 }
 
 impl RenderObject for AnimatedOpacityRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        let child_size = self.child.layout(constraints);
-        self.child.set_offset(Offset::ZERO);
-        self.state.size = child_size;
-        child_size
-    }
-
-    fn get_rect(&self) -> Rect {
-        self.state.get_rect()
-    }
-
-    fn set_offset(&mut self, offset: Offset) {
-        self.state.offset = offset;
-    }
-
-    fn get_offset(&self) -> Offset {
-        self.state.offset
-    }
-
-    fn get_size(&self) -> Size {
-        self.state.size
-    }
+    crate::impl_single_child_layout!(state, child);
+    crate::impl_animated_tick!(state, child);
+    crate::impl_render_object_common!(state);
+    crate::impl_single_child_render_object!(child);
 
     fn paint(&self, painter: &mut dyn Painter) {
         if self.current_opacity <= 0.0 {
             return;
         }
 
+        painter.save();
+        painter.translate(self.state.offset);
+        
         // Note: The actual opacity application depends on the Painter implementation
         // The child should be rendered, and opacity can be applied at a higher level
         // or by specific widgets (like Image) that support alpha
         self.child.paint(painter);
+        
+        painter.restore();
     }
 
     fn hit_test(&self, position: Offset) -> HitTestResult {
@@ -207,49 +194,5 @@ impl RenderObject for AnimatedOpacityRenderObject {
             position.y - self.state.offset.y,
         );
         self.child.hit_test(local)
-    }
-
-    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
-        self.child.handle_event(event)
-    }
-
-    fn on_mount(&mut self) {
-        self.child.on_mount();
-    }
-
-    fn on_unmount(&mut self) {
-        self.child.on_unmount();
-    }
-
-    fn children(&self) -> Vec<&dyn RenderObject> {
-        vec![self.child.as_ref()]
-    }
-
-    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
-        vec![self.child.as_mut()]
-    }
-
-    fn needs_layout(&self) -> bool {
-        self.state.needs_layout
-    }
-
-    fn mark_needs_layout(&mut self) {
-        self.state.needs_layout = true;
-    }
-
-    fn needs_paint(&self) -> bool {
-        self.state.needs_paint
-    }
-
-    fn mark_needs_paint(&mut self) {
-        self.state.needs_paint = true;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }

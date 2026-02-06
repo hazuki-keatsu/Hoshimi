@@ -4,13 +4,13 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_shared::{Offset};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// A widget that fades its child in or out based on visibility
@@ -83,7 +83,8 @@ impl Widget for FadeTransition {
     }
 
     fn create_render_object(&self) -> Box<dyn RenderObject> {
-        let initial_opacity = if self.visible { 1.0 } else { 0.0 };
+        // Start from invisible if visible=true (will animate in on_mount)
+        let initial_opacity = if self.visible { 0.0 } else { 0.0 };
         Box::new(FadeTransitionRenderObject {
             state: RenderObjectState::default(),
             child: self.child.create_render_object(),
@@ -92,6 +93,7 @@ impl Widget for FadeTransition {
             controller: None,
             duration: self.duration,
             curve: self.curve,
+            needs_entrance_animation: self.visible,
         })
     }
 
@@ -129,6 +131,8 @@ pub struct FadeTransitionRenderObject {
     controller: Option<AnimationController<f32>>,
     duration: f32,
     curve: Curve,
+    /// Whether entrance animation should play on mount
+    needs_entrance_animation: bool,
 }
 
 impl FadeTransitionRenderObject {
@@ -143,24 +147,6 @@ impl FadeTransitionRenderObject {
         self.controller = Some(controller);
     }
 
-    /// Update animation state (call each frame)
-    pub fn update(&mut self, delta: f32) {
-        if let Some(ref mut controller) = self.controller {
-            controller.update(delta);
-            self.current_opacity = controller.value();
-            
-            if controller.is_completed() {
-                self.current_opacity = if self.visible { 1.0 } else { 0.0 };
-                self.controller = None;
-            }
-        }
-    }
-
-    /// Check if animation is in progress
-    pub fn is_animating(&self) -> bool {
-        self.controller.as_ref().map_or(false, |c| c.is_animating())
-    }
-
     /// Check if currently visible (opacity > 0)
     pub fn is_visible(&self) -> bool {
         self.current_opacity > 0.0
@@ -172,38 +158,42 @@ impl FadeTransitionRenderObject {
     }
 }
 
+impl Animatable for FadeTransitionRenderObject {
+    fn update(&mut self, delta: f32) {
+        if let Some(ref mut controller) = self.controller {
+            controller.update(delta);
+            self.current_opacity = controller.value();
+            
+            if controller.is_completed() {
+                self.current_opacity = if self.visible { 1.0 } else { 0.0 };
+                self.controller = None;
+            }
+        }
+    }
+
+    fn is_animating(&self) -> bool {
+        self.controller.as_ref().map_or(false, |c| c.is_animating())
+    }
+}
+
 impl RenderObject for FadeTransitionRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        let child_size = self.child.layout(constraints);
-        self.child.set_offset(Offset::ZERO);
-        self.state.size = child_size;
-        child_size
-    }
-
-    fn get_rect(&self) -> Rect {
-        self.state.get_rect()
-    }
-
-    fn set_offset(&mut self, offset: Offset) {
-        self.state.offset = offset;
-    }
-
-    fn get_offset(&self) -> Offset {
-        self.state.offset
-    }
-
-    fn get_size(&self) -> Size {
-        self.state.size
-    }
+    crate::impl_single_child_layout!(state, child);
+    crate::impl_animated_tick!(state, child);
+    crate::impl_render_object_common!(state);
 
     fn paint(&self, painter: &mut dyn Painter) {
         if self.current_opacity <= 0.0 {
             return;
         }
 
+        painter.save();
+        painter.translate(self.state.offset);
+        
         // Note: The actual opacity application depends on the Painter implementation
         // The child should be rendered, opacity can be applied at higher level
         self.child.paint(painter);
+        
+        painter.restore();
     }
 
     fn hit_test(&self, position: Offset) -> HitTestResult {
@@ -219,6 +209,7 @@ impl RenderObject for FadeTransitionRenderObject {
         self.child.hit_test(local)
     }
 
+    // Custom handle_event: ignore events when not fully visible
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         if self.current_opacity < 1.0 {
             return EventResult::Ignored;
@@ -228,6 +219,11 @@ impl RenderObject for FadeTransitionRenderObject {
 
     fn on_mount(&mut self) {
         self.child.on_mount();
+        // Start entrance animation when mounted (FadeTransition doesn't need size for animation)
+        if self.needs_entrance_animation {
+            self.needs_entrance_animation = false;
+            self.start_animation();
+        }
     }
 
     fn on_unmount(&mut self) {
@@ -240,29 +236,5 @@ impl RenderObject for FadeTransitionRenderObject {
 
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
-    }
-
-    fn needs_layout(&self) -> bool {
-        self.state.needs_layout
-    }
-
-    fn mark_needs_layout(&mut self) {
-        self.state.needs_layout = true;
-    }
-
-    fn needs_paint(&self) -> bool {
-        self.state.needs_paint
-    }
-
-    fn mark_needs_paint(&mut self) {
-        self.state.needs_paint = true;
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }

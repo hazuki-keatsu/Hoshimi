@@ -118,6 +118,26 @@ pub trait RenderObject: Debug + Any {
     fn on_update(&mut self) {}
     
     // ========================================================================
+    // Animation
+    // ========================================================================
+    
+    /// Update animations with the given delta time (in seconds)
+    /// 
+    /// This method is called every frame to advance any running animations.
+    /// Returns `true` if any animation is still in progress (needs more frames).
+    /// 
+    /// The default implementation recursively ticks all children.
+    fn tick(&mut self, delta: f32) -> bool {
+        let mut animating = false;
+        for child in self.children_mut() {
+            if child.tick(delta) {
+                animating = true;
+            }
+        }
+        animating
+    }
+    
+    // ========================================================================
     // Children
     // ========================================================================
     
@@ -269,6 +289,111 @@ macro_rules! impl_render_object_common {
         
         fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
             self
+        }
+    };
+}
+
+/// Trait for render objects that can be animated
+/// 
+/// Implement this trait to enable automatic animation ticking.
+pub trait Animatable {
+    /// Update the animation state with delta time (in seconds)
+    fn update(&mut self, delta: f32);
+    
+    /// Check if any animation is currently running
+    fn is_animating(&self) -> bool;
+}
+
+/// Helper macro for implementing common single-child RenderObject methods
+/// 
+/// This macro generates implementations for:
+/// - `children()` / `children_mut()`
+/// - `handle_event()` - delegates to child
+/// - `on_mount()` / `on_unmount()` - delegates to child
+/// 
+/// # Usage
+/// ```ignore
+/// impl RenderObject for MyRenderObject {
+///     impl_single_child_render_object!(child);
+///     // ... other methods
+/// }
+/// ```
+#[macro_export]
+macro_rules! impl_single_child_render_object {
+    ($child_field:ident) => {
+        fn children(&self) -> Vec<&dyn $crate::render::RenderObject> {
+            vec![self.$child_field.as_ref()]
+        }
+        
+        fn children_mut(&mut self) -> Vec<&mut dyn $crate::render::RenderObject> {
+            vec![self.$child_field.as_mut()]
+        }
+        
+        fn handle_event(&mut self, event: &$crate::events::InputEvent) -> $crate::events::EventResult {
+            self.$child_field.handle_event(event)
+        }
+        
+        fn on_mount(&mut self) {
+            self.$child_field.on_mount();
+        }
+        
+        fn on_unmount(&mut self) {
+            self.$child_field.on_unmount();
+        }
+    };
+}
+
+/// Helper macro for implementing animated RenderObject tick method
+/// 
+/// Requires the struct to implement `Animatable` trait and have:
+/// - A `state` field of type `RenderObjectState`
+/// - A `child` field that is a `Box<dyn RenderObject>`
+/// 
+/// # Usage
+/// ```ignore
+/// impl RenderObject for MyAnimatedRenderObject {
+///     impl_animated_tick!(state, child);
+///     // ... other methods
+/// }
+/// ```
+#[macro_export]
+macro_rules! impl_animated_tick {
+    ($state_field:ident, $child_field:ident) => {
+        fn tick(&mut self, delta: f32) -> bool {
+            // Update this object's animation
+            $crate::render::Animatable::update(self, delta);
+            let self_animating = $crate::render::Animatable::is_animating(self);
+            
+            // Recursively tick children
+            let child_animating = self.$child_field.tick(delta);
+            
+            // Mark for repaint if animating
+            if self_animating {
+                self.$state_field.mark_needs_paint();
+            }
+            
+            self_animating || child_animating
+        }
+    };
+}
+
+/// Helper macro for implementing single-child layout
+/// 
+/// # Usage
+/// ```ignore
+/// impl RenderObject for MyRenderObject {
+///     impl_single_child_layout!(state, child);
+///     // ... other methods
+/// }
+/// ```
+#[macro_export]
+macro_rules! impl_single_child_layout {
+    ($state_field:ident, $child_field:ident) => {
+        fn layout(&mut self, constraints: hoshimi_shared::Constraints) -> hoshimi_shared::Size {
+            let child_size = self.$child_field.layout(constraints);
+            self.$child_field.set_offset(hoshimi_shared::Offset::ZERO);
+            self.$state_field.size = child_size;
+            child_size
         }
     };
 }
