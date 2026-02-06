@@ -60,6 +60,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod animation;
 pub mod events;
 pub mod key;
 pub mod painter;
@@ -68,6 +69,7 @@ pub mod tree;
 pub mod widget;
 
 // Re-export commonly used items
+pub use animation::{AnimationController, AnimationStatus, Curve, Interpolate, RepeatMode, Tween};
 pub use events::{EventResult, InputEvent, UIMessage};
 pub use key::WidgetKey;
 pub use painter::{Painter, TextMeasurer};
@@ -92,11 +94,23 @@ pub mod prelude {
     pub use crate::tree::UiTree;
     pub use crate::widget::Widget;
 
+    // Animation
+    pub use crate::animation::{
+        AnimationController, AnimationGroup, AnimationStatus, Curve, Interpolate,
+        RepeatMode, Tween, TweenSequence,
+    };
+
     // Basic widgets
     pub use crate::widget::basic::{
         Align, Center, Column, Container, Expanded, Flexible, FlexFit,
         GestureDetector, Image, Padding, Positioned, Row,
         SizedBox, Stack, StackFit, Text,
+    };
+
+    // Animated widgets
+    pub use crate::widget::animated::{
+        AnimatedOpacity, AnimatedPosition, AnimatedScale,
+        FadeTransition, SlideDirection, SlideTransition,
     };
 
     // Visual novel widgets
