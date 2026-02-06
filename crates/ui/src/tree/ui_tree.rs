@@ -10,6 +10,7 @@ use hoshimi_shared::{Constraints, Size};
 use tracing::{debug, trace};
 
 use crate::events::{EventResult, InputEvent, UIMessage};
+use crate::gesture::{GestureConfig, InputEventQueue};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
 use crate::render::RenderObject;
@@ -28,6 +29,9 @@ pub struct UiTree {
     
     /// Key-based render object cache for diffing
     key_cache: HashMap<WidgetKey, usize>,
+    
+    /// Input event queue with gesture detection
+    event_queue: InputEventQueue,
     
     /// Pending messages from event handling
     pending_messages: Vec<UIMessage>,
@@ -52,6 +56,7 @@ impl UiTree {
             root: None,
             root_widget_type: None,
             key_cache: HashMap::new(),
+            event_queue: InputEventQueue::new(),
             pending_messages: Vec::new(),
             constraints: Constraints::loose(Size::new(800.0, 600.0)),
             last_size: Size::ZERO,
@@ -240,7 +245,7 @@ impl UiTree {
         self.layout_if_needed();
         
         if let Some(ref root) = self.root {
-            trace!("Painting UI tree");
+            // trace!("Painting UI tree");
             root.paint(painter);
             self.needs_paint = false;
         }
@@ -274,20 +279,151 @@ impl UiTree {
         }
     }
     
-    /// Handle input event
+    /// Handle input event directly (bypasses event queue)
+    /// 
+    /// For most cases, prefer using `push_event()` and `process_events()` instead,
+    /// which provides automatic gesture detection.
     pub fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         if let Some(ref mut root) = self.root {
-            let result = root.handle_event(event);
-            
-            // Collect any messages
-            if let EventResult::Message(msg) = &result {
-                self.pending_messages.push(msg.clone());
-            }
-            
+            let result = Self::dispatch_event_recursive(root.as_mut(), event, &mut self.pending_messages);
             result
         } else {
             EventResult::Ignored
         }
+    }
+    
+    /// Recursively dispatch an event through the render tree
+    /// 
+    /// Events are dispatched depth-first (children first), and propagation
+    /// stops when a widget consumes the event (returns Handled, Consumed, or Message).
+    /// 
+    /// Coordinates are transformed to each child's local coordinate space.
+    fn dispatch_event_recursive(
+        render_object: &mut dyn RenderObject,
+        event: &InputEvent,
+        messages: &mut Vec<UIMessage>,
+    ) -> EventResult {
+        // First, try to dispatch to children (depth-first)
+        for child in render_object.children_mut() {
+            // Transform event coordinates to child's local coordinate space
+            let child_offset = child.get_offset();
+            let local_event = event.with_offset(child_offset);
+            
+            let result = Self::dispatch_event_recursive(child, &local_event, messages);
+            if result.should_stop() {
+                // Messages are already collected by the recursive call
+                return result;
+            }
+        }
+        
+        // Then let this render object handle the event
+        let result = render_object.handle_event(event);
+        
+        // Collect message if any (only at the source, not when propagating)
+        if let EventResult::Message(msg) = &result {
+            messages.push(msg.clone());
+        }
+        
+        result
+    }
+    
+    /// Push an input event to the event queue
+    /// 
+    /// The event will be processed by the gesture detector, which may generate
+    /// additional high-level gesture events (Tap, LongPress, etc.)
+    /// 
+    /// Call `process_events()` to dispatch queued events to the UI tree.
+    /// 
+    /// # Example
+    /// ```ignore
+    /// // In your event loop:
+    /// ui_tree.push_event(InputEvent::MouseDown { position, button });
+    /// 
+    /// // Later, process all queued events:
+    /// ui_tree.process_events();
+    /// ```
+    pub fn push_event(&mut self, event: InputEvent) {
+        self.event_queue.push(event);
+    }
+    
+    /// Push a raw input event without gesture detection
+    /// 
+    /// Use this for events that should not trigger gesture detection,
+    /// or for pre-processed gesture events.
+    pub fn push_event_raw(&mut self, event: InputEvent) {
+        self.event_queue.push_raw(event);
+    }
+    
+    /// Process all queued events and dispatch them to the UI tree
+    /// 
+    /// This method drains the event queue, passing each event to the widget tree
+    /// for handling. Generated UIMessages are collected in `pending_messages`.
+    /// 
+    /// Returns the number of events processed.
+    /// 
+    /// # Example
+    /// ```ignore
+    /// // Push events from your platform's event loop
+    /// for sdl_event in event_pump.poll_iter() {
+    ///     if let Some(input_event) = convert_sdl_event(&sdl_event) {
+    ///         ui_tree.push_event(input_event);
+    ///     }
+    /// }
+    /// 
+    /// // Process all queued events
+    /// ui_tree.process_events();
+    /// 
+    /// // Handle any generated messages
+    /// for message in ui_tree.take_messages() {
+    ///     handle_message(message);
+    /// }
+    /// ```
+    pub fn process_events(&mut self) -> usize {
+        let mut count = 0;
+        
+        while let Some(event) = self.event_queue.pop() {
+            trace!("Processing event: {:?}", event);
+            let result = self.handle_event(&event);
+            
+            match &result {
+                EventResult::Handled | EventResult::Consumed => {
+                    trace!("Event handled/consumed");
+                }
+                EventResult::Message(msg) => {
+                    debug!("Event produced message: {:?}", msg);
+                }
+                EventResult::Ignored => {}
+            }
+            
+            count += 1;
+        }
+        
+        count
+    }
+    
+    /// Check if there are pending events in the queue
+    pub fn has_pending_events(&self) -> bool {
+        !self.event_queue.is_empty()
+    }
+    
+    /// Get the number of pending events in the queue
+    pub fn pending_event_count(&self) -> usize {
+        self.event_queue.len()
+    }
+    
+    /// Configure the gesture detector
+    /// 
+    /// Allows customizing gesture detection thresholds like tap distance
+    /// and long press duration.
+    pub fn set_gesture_config(&mut self, config: GestureConfig) {
+        self.event_queue.gesture_detector_mut().set_config(config);
+    }
+    
+    /// Reset the gesture detector state
+    /// 
+    /// Call this when focus is lost or gestures should be cancelled.
+    pub fn reset_gesture_state(&mut self) {
+        self.event_queue.reset_gesture_state();
     }
     
     /// Hit test at position

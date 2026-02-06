@@ -3,9 +3,10 @@ use tracing_subscriber::{self, EnvFilter};
 
 pub fn init() {
     tracing_subscriber::fmt()
+        .with_level(true)
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info")),
+                .unwrap_or_else(|_| EnvFilter::new("trace")),
         )
         .init();
 }

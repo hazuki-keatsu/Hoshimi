@@ -1,62 +1,53 @@
 //! GestureDetector Widget
 //!
 //! Detects various gestures and emits UI messages.
+//!
+//! # Example
+//!
+//! ```ignore
+//! GestureDetector::new(some_widget)
+//!     .on_tap("my_button")           // Emits UIMessage::Gesture { id: "my_button", kind: Tap }
+//!     .on_long_press("my_button")    // Emits UIMessage::Gesture { id: "my_button", kind: LongPress }
+//! ```
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Size};
+use hoshimi_shared::{Constraints, Offset, Rect, Size};
 
-use crate::events::{EventResult, HitTestResult, InputEvent, UIMessage};
+use crate::events::{EventResult, GestureKind, HitTestResult, InputEvent, UIMessage};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
 use crate::render::{RenderObject, RenderObjectState};
 use crate::widget::Widget;
 use crate::impl_render_object_common;
 
-/// Gesture types that can be detected
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GestureType {
-    Tap,
-    DoubleTap,
-    LongPress,
-    Pan,
-}
-
-/// Configuration for gesture callbacks
-#[derive(Debug, Clone)]
-pub struct GestureCallbacks {
-    /// Message to send on tap
-    pub on_tap: Option<UIMessage>,
+/// Configuration for gesture callbacks (ID-based)
+#[derive(Debug, Clone, Default)]
+pub struct GestureConfig {
+    /// ID for tap gesture
+    pub tap_id: Option<String>,
     
-    /// Message to send on double tap
-    pub on_double_tap: Option<UIMessage>,
+    /// ID for double tap gesture
+    pub double_tap_id: Option<String>,
     
-    /// Message to send on long press
-    pub on_long_press: Option<UIMessage>,
+    /// ID for long press gesture
+    pub long_press_id: Option<String>,
     
-    /// Button ID for button click messages
-    pub button_id: Option<String>,
-}
-
-impl Default for GestureCallbacks {
-    fn default() -> Self {
-        Self {
-            on_tap: None,
-            on_double_tap: None,
-            on_long_press: None,
-            button_id: None,
-        }
-    }
+    /// ID for pan gesture
+    pub pan_id: Option<String>,
 }
 
 /// GestureDetector widget for handling user interactions
+/// 
+/// A simplified gesture detector that uses ID-based callbacks.
+/// When a gesture is detected, it emits `UIMessage::Gesture { id, kind }`.
 #[derive(Debug)]
 pub struct GestureDetector {
     /// Child widget
     pub child: Box<dyn Widget>,
     
-    /// Gesture callbacks configuration
-    pub callbacks: GestureCallbacks,
+    /// Gesture configuration
+    pub config: GestureConfig,
     
     /// Whether the gesture detector absorbs events
     pub absorb_events: bool,
@@ -70,45 +61,45 @@ impl GestureDetector {
     pub fn new(child: impl Widget + 'static) -> Self {
         Self {
             child: Box::new(child),
-            callbacks: GestureCallbacks::default(),
+            config: GestureConfig::default(),
             absorb_events: true,
             key: None,
         }
     }
     
-    /// Set tap callback (sends DialogConfirm message)
-    pub fn on_tap_confirm(mut self) -> Self {
-        self.callbacks.on_tap = Some(UIMessage::DialogConfirm);
+    /// Set tap callback with ID
+    /// 
+    /// When tapped, emits `UIMessage::Gesture { id, kind: GestureKind::Tap }`
+    pub fn on_tap(mut self, id: impl Into<String>) -> Self {
+        self.config.tap_id = Some(id.into());
         self
     }
     
-    /// Set tap callback with button ID
-    pub fn on_tap_button(mut self, button_id: impl Into<String>) -> Self {
-        let id = button_id.into();
-        self.callbacks.button_id = Some(id.clone());
-        self.callbacks.on_tap = Some(UIMessage::ButtonClick { id });
+    /// Set double tap callback with ID
+    /// 
+    /// When double-tapped, emits `UIMessage::Gesture { id, kind: GestureKind::DoubleTap }`
+    pub fn on_double_tap(mut self, id: impl Into<String>) -> Self {
+        self.config.double_tap_id = Some(id.into());
         self
     }
     
-    /// Set tap callback with custom message
-    pub fn on_tap(mut self, message: UIMessage) -> Self {
-        self.callbacks.on_tap = Some(message);
+    /// Set long press callback with ID
+    /// 
+    /// When long-pressed, emits `UIMessage::Gesture { id, kind: GestureKind::LongPress }`
+    pub fn on_long_press(mut self, id: impl Into<String>) -> Self {
+        self.config.long_press_id = Some(id.into());
         self
     }
     
-    /// Set double tap callback
-    pub fn on_double_tap(mut self, message: UIMessage) -> Self {
-        self.callbacks.on_double_tap = Some(message);
+    /// Set pan callback with ID
+    /// 
+    /// When panning, emits `UIMessage::Gesture { id, kind: GestureKind::PanStart/PanUpdate/PanEnd }`
+    pub fn on_pan(mut self, id: impl Into<String>) -> Self {
+        self.config.pan_id = Some(id.into());
         self
     }
     
-    /// Set long press callback
-    pub fn on_long_press(mut self, message: UIMessage) -> Self {
-        self.callbacks.on_long_press = Some(message);
-        self
-    }
-    
-    /// Set whether to absorb events
+    /// Set whether to absorb events (default: true)
     pub fn with_absorb_events(mut self, absorb: bool) -> Self {
         self.absorb_events = absorb;
         self
@@ -139,14 +130,14 @@ impl Widget for GestureDetector {
         
         Box::new(GestureDetectorRenderObject::new(
             child_ro,
-            self.callbacks.clone(),
+            self.config.clone(),
             self.absorb_events,
         ))
     }
     
     fn update_render_object(&self, render_object: &mut dyn RenderObject) {
         if let Some(gesture_ro) = render_object.as_any_mut().downcast_mut::<GestureDetectorRenderObject>() {
-            gesture_ro.callbacks = self.callbacks.clone();
+            gesture_ro.config = self.config.clone();
             gesture_ro.absorb_events = self.absorb_events;
         }
     }
@@ -169,39 +160,34 @@ impl Widget for GestureDetector {
 pub struct GestureDetectorRenderObject {
     state: RenderObjectState,
     child: Box<dyn RenderObject>,
-    callbacks: GestureCallbacks,
+    config: GestureConfig,
     absorb_events: bool,
-    
-    /// Messages to emit (collected during event handling)
-    pending_messages: Vec<UIMessage>,
     
     /// Hover state
     is_hovered: bool,
     
     /// Press state
     is_pressed: bool,
+    
+    /// Pan state for tracking drag gestures
+    is_panning: bool,
 }
 
 impl GestureDetectorRenderObject {
     fn new(
         child: Box<dyn RenderObject>,
-        callbacks: GestureCallbacks,
+        config: GestureConfig,
         absorb_events: bool,
     ) -> Self {
         Self {
             state: RenderObjectState::new(),
             child,
-            callbacks,
+            config,
             absorb_events,
-            pending_messages: Vec::new(),
             is_hovered: false,
             is_pressed: false,
+            is_panning: false,
         }
-    }
-    
-    /// Take pending messages (called by the tree after event processing)
-    pub fn take_messages(&mut self) -> Vec<UIMessage> {
-        std::mem::take(&mut self.pending_messages)
     }
 }
 
@@ -227,7 +213,8 @@ impl RenderObject for GestureDetectorRenderObject {
     }
     
     fn hit_test(&self, position: Offset) -> HitTestResult {
-        let rect = self.state.get_rect();
+        // Use local rect (at origin) since position is in local coordinates
+        let rect = Rect::from_size(self.state.size);
         
         if rect.contains(position) {
             if self.absorb_events {
@@ -241,55 +228,96 @@ impl RenderObject for GestureDetectorRenderObject {
     }
     
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        // Use local rect (at origin) since event position is in local coordinates
+        let local_rect = Rect::from_size(self.state.size);
+        
         match event {
             InputEvent::Tap { position } => {
-                let rect = self.state.get_rect();
-                if rect.contains(*position) {
-                    if let Some(ref message) = self.callbacks.on_tap {
-                        self.pending_messages.push(message.clone());
-                        return EventResult::Consumed;
+                if local_rect.contains(*position) {
+                    if let Some(id) = self.config.tap_id.clone() {
+                        return EventResult::Message(UIMessage::Gesture {
+                            id,
+                            kind: GestureKind::Tap,
+                        });
                     }
                     return EventResult::Handled;
                 }
             }
             
             InputEvent::LongPress { position } => {
-                let rect = self.state.get_rect();
-                if rect.contains(*position) {
-                    if let Some(ref message) = self.callbacks.on_long_press {
-                        self.pending_messages.push(message.clone());
-                        return EventResult::Consumed;
+                if local_rect.contains(*position) {
+                    if let Some(id) = self.config.long_press_id.clone() {
+                        return EventResult::Message(UIMessage::Gesture {
+                            id,
+                            kind: GestureKind::LongPress,
+                        });
                     }
                     return EventResult::Handled;
                 }
             }
             
             InputEvent::Hover { position, entered } => {
-                let rect = self.state.get_rect();
-                if rect.contains(*position) {
+                if local_rect.contains(*position) {
                     self.is_hovered = *entered;
                     return EventResult::Handled;
                 }
             }
             
             InputEvent::MouseDown { position, .. } => {
-                let rect = self.state.get_rect();
-                if rect.contains(*position) {
+                if local_rect.contains(*position) {
                     self.is_pressed = true;
+                    
+                    // Start pan if configured
+                    if let Some(id) = self.config.pan_id.clone() {
+                        self.is_panning = true;
+                        return EventResult::Message(UIMessage::Gesture {
+                            id,
+                            kind: GestureKind::PanStart,
+                        });
+                    }
+                    
+                    return EventResult::Handled;
+                }
+            }
+            
+            InputEvent::MouseMove { position, .. } => {
+                // Handle pan update
+                if self.is_panning {
+                    if let Some(id) = self.config.pan_id.clone() {
+                        return EventResult::Message(UIMessage::Gesture {
+                            id,
+                            kind: GestureKind::PanUpdate,
+                        });
+                    }
+                }
+                
+                // Update hover state
+                let was_hovered = self.is_hovered;
+                self.is_hovered = local_rect.contains(*position);
+                if was_hovered != self.is_hovered {
                     return EventResult::Handled;
                 }
             }
             
             InputEvent::MouseUp { position, .. } => {
+                // End pan if panning
+                if self.is_panning {
+                    self.is_panning = false;
+                    if let Some(id) = self.config.pan_id.clone() {
+                        return EventResult::Message(UIMessage::Gesture {
+                            id,
+                            kind: GestureKind::PanEnd,
+                        });
+                    }
+                }
+                
+                // Just clear press state, don't generate Tap here
+                // Tap events are generated by the gesture detection system
+                // and handled via InputEvent::Tap
                 if self.is_pressed {
                     self.is_pressed = false;
-                    let rect = self.state.get_rect();
-                    if rect.contains(*position) {
-                        // This was a tap
-                        if let Some(ref message) = self.callbacks.on_tap {
-                            self.pending_messages.push(message.clone());
-                            return EventResult::Consumed;
-                        }
+                    if local_rect.contains(*position) && self.config.tap_id.is_some() {
+                        return EventResult::Handled;
                     }
                 }
             }

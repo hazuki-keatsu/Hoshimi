@@ -19,7 +19,7 @@ mod expanded;
 pub use text::{Text, TextRenderObject};
 pub use image::{Image, ImageRenderObject};
 pub use container::{Container, ContainerRenderObject};
-pub use gesture_detector::{GestureDetector, GestureCallbacks, GestureDetectorRenderObject};
+pub use gesture_detector::{GestureDetector, GestureConfig, GestureDetectorRenderObject};
 pub use column::{Column, ColumnRenderObject};
 pub use row::{Row, RowRenderObject};
 pub use stack::{Stack, StackFit, StackRenderObject};

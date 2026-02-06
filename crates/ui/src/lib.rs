@@ -62,6 +62,7 @@
 
 pub mod animation;
 pub mod events;
+pub mod gesture;
 pub mod key;
 pub mod painter;
 pub mod render;
@@ -70,7 +71,8 @@ pub mod widget;
 
 // Re-export commonly used items
 pub use animation::{AnimationController, AnimationStatus, Curve, Interpolate, RepeatMode, Tween};
-pub use events::{EventResult, InputEvent, UIMessage};
+pub use events::{EventResult, GestureKind, InputEvent, UIMessage};
+pub use gesture::{GestureConfig, InputEventQueue};
 pub use key::WidgetKey;
 pub use painter::{Painter, TextMeasurer};
 pub use render::{RenderObject, RenderObjectState};
@@ -87,7 +89,8 @@ pub mod prelude {
     //! ```
 
     // Core traits and types
-    pub use crate::events::{EventResult, HitTestResult, InputEvent, UIMessage};
+    pub use crate::events::{EventResult, GestureKind, HitTestResult, InputEvent, UIMessage, MouseButton, KeyCode, KeyModifiers};
+    pub use crate::gesture::{GestureConfig, InputEventQueue};
     pub use crate::key::{WidgetIdentity, WidgetKey};
     pub use crate::painter::{Painter, TextMeasurer};
     pub use crate::render::{RenderObject, RenderObjectState};

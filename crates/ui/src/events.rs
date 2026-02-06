@@ -100,6 +100,43 @@ impl InputEvent {
             _ => None,
         }
     }
+    
+    /// Create a new event with position transformed by subtracting the given offset
+    /// 
+    /// This is used to transform global coordinates to local coordinates when
+    /// dispatching events down the widget tree.
+    pub fn with_offset(&self, offset: Offset) -> Self {
+        match self {
+            InputEvent::Tap { position } => InputEvent::Tap {
+                position: *position - offset,
+            },
+            InputEvent::LongPress { position } => InputEvent::LongPress {
+                position: *position - offset,
+            },
+            InputEvent::Hover { position, entered } => InputEvent::Hover {
+                position: *position - offset,
+                entered: *entered,
+            },
+            InputEvent::MouseMove { position, delta } => InputEvent::MouseMove {
+                position: *position - offset,
+                delta: *delta,
+            },
+            InputEvent::MouseDown { position, button } => InputEvent::MouseDown {
+                position: *position - offset,
+                button: *button,
+            },
+            InputEvent::MouseUp { position, button } => InputEvent::MouseUp {
+                position: *position - offset,
+                button: *button,
+            },
+            InputEvent::Scroll { position, delta } => InputEvent::Scroll {
+                position: *position - offset,
+                delta: *delta,
+            },
+            // Events without position are unchanged
+            event => event.clone(),
+        }
+    }
 }
 
 #[doc(hidden)]
@@ -252,6 +289,27 @@ pub struct HitTestEntry {
 }
 
 // ============================================================================
+// Gesture Types
+// ============================================================================
+
+/// Types of gestures that can be detected
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GestureKind {
+    /// Single tap/click
+    Tap,
+    /// Double tap/click
+    DoubleTap,
+    /// Long press
+    LongPress,
+    /// Pan gesture started
+    PanStart,
+    /// Pan gesture update (with delta)
+    PanUpdate,
+    /// Pan gesture ended
+    PanEnd,
+}
+
+// ============================================================================
 // UI Messages
 // ============================================================================
 
@@ -275,10 +333,18 @@ pub enum UIMessage {
     /// Menu action triggered
     MenuAction(MenuAction),
     
-    /// Button clicked
+    /// Button clicked (legacy, prefer Gesture)
     ButtonClick {
         /// Button identifier
         id: String,
+    },
+    
+    /// Gesture detected on an element
+    Gesture {
+        /// Element identifier
+        id: String,
+        /// Type of gesture
+        kind: GestureKind,
     },
     
     /// Custom message with arbitrary payload

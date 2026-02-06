@@ -1,3 +1,5 @@
+mod event_adapter;
+
 use hoshimi_renderer::{Color, SceneRenderer};
 use hoshimi_shared::logger::{self, ExpectLog};
 use hoshimi_ui::painter::SceneRendererPainter;
@@ -77,12 +79,21 @@ fn main() {
                     }
                     _ => {}
                 },
-                sdl3::event::Event::MouseButtonDown { x, y, .. } => {
-                    logger::info!("UI System: Mouse click at ({}, {})", x, y);
-                    // TODO: 将鼠标事件传递给 UI 系统进行处理
+                _ => {
+                    // Convert SDL event to UI InputEvent and push to queue
+                    if let Some(input_event) = event_adapter::convert_event(&event) {
+                        ui_tree.push_event(input_event);
+                    }
                 }
-                _ => {}
             }
+        }
+        
+        // Process all queued events (includes gesture detection)
+        ui_tree.process_events();
+        
+        // Handle UI messages
+        for message in ui_tree.take_messages() {
+            handle_ui_message(&message);
         }
 
         // Update animations
@@ -149,6 +160,57 @@ fn build_test_ui() -> impl Widget {
                 )
                 .with_duration(0.6)
                 .with_curve(Curve::EaseOutBack),
+            )
+            .child(
+                // Clickable button example
+                GestureDetector::new(
+                    Container::new()
+                        .with_color(Color::from_rgb8(70, 130, 180))
+                        .with_decoration(
+                            BoxDecoration::default()
+                                .with_color(Color::from_rgb8(70, 130, 180))
+                                .with_border_radius(BorderRadius::all(8.0)),
+                        )
+                        .with_padding_all(12f32)
+                        .child(
+                            Text::new("Click Me!")
+                                .with_size(18f32)
+                                .with_color(Color::white()),
+                        ),
+                )
+                .on_tap("test_button"),
             ),
     ))
+}
+
+/// Handle UI messages from the UI system
+fn handle_ui_message(message: &UIMessage) {
+    match message {
+        UIMessage::DialogConfirm => {
+            logger::info!("UI Message: Dialog confirmed");
+        }
+        UIMessage::OptionSelect { index, label } => {
+            logger::info!(
+                "UI Message: Option selected - index: {}, label: {:?}",
+                index,
+                label
+            );
+        }
+        UIMessage::MenuAction(action) => {
+            logger::info!("UI Message: Menu action - {:?}", action);
+        }
+        UIMessage::ButtonClick { id } => {
+            logger::info!("UI Message: Button clicked - id: {}", id);
+        }
+        UIMessage::Gesture { id, kind } => {
+            logger::info!("UI Message: Gesture {:?} on element '{}'", kind, id);
+        }
+        UIMessage::Custom(custom) => {
+            logger::info!(
+                "UI Message: Custom - type: {}, payload: {:?}",
+                custom.type_id,
+                custom.payload
+            );
+        }
+    }
 }
