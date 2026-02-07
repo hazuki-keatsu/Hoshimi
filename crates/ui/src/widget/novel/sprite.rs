@@ -281,6 +281,22 @@ impl Widget for Sprite {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Sprite {
+            character_id: self.character_id.clone(),
+            expression: self.expression.clone(),
+            outfit: self.outfit.clone(),
+            position: self.position,
+            vertical_align: self.vertical_align,
+            scale: self.scale,
+            opacity: self.opacity,
+            flip_x: self.flip_x,
+            transition: self.transition,
+            layer: self.layer,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Sprite widget

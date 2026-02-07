@@ -86,6 +86,14 @@ impl Widget for Expanded {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Expanded {
+            child: self.child.clone_boxed(),
+            flex: self.flex,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Expanded widget
@@ -266,6 +274,15 @@ impl Widget for Flexible {
     
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Flexible {
+            child: self.child.clone_boxed(),
+            flex: self.flex,
+            fit: self.fit,
+            key: self.key.clone(),
+        })
     }
 }
 

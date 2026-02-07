@@ -155,6 +155,16 @@ impl Widget for Background {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Background {
+            source: self.source.clone(),
+            color: self.color,
+            transition: self.transition,
+            opacity: self.opacity,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Background widget

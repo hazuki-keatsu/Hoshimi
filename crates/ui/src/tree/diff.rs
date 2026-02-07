@@ -183,21 +183,9 @@ impl WidgetDiffer {
             
             if let Some(diff) = Self::diff_widget(old_child, new_child) {
                 if diff.has_changes() {
-                    // Propagate child diffs
-                    if !diff.operations.is_empty() {
-                        // Has direct operations
-                        for op in &diff.operations {
-                            if let DiffOperation::Update { widget, .. } = op {
-                                operations.push(DiffOperation::Update {
-                                    index: i,
-                                    widget: *widget,
-                                });
-                            }
-                        }
-                    }
-                    if !diff.child_diffs.is_empty() {
-                        child_diffs.push((i, diff));
-                    }
+                    // Store child diff for recursive processing
+                    // This includes both the child's own operations and its nested child_diffs
+                    child_diffs.push((i, diff));
                 }
             } else {
                 // Types differ - remove old, insert new
@@ -272,17 +260,8 @@ impl WidgetDiffer {
                     // Check if update needed
                     if let Some(diff) = Self::diff_widget(old_child, *new_child) {
                         if diff.has_changes() {
-                            for op in &diff.operations {
-                                if let DiffOperation::Update { widget, .. } = op {
-                                    operations.push(DiffOperation::Update {
-                                        index: new_idx,
-                                        widget: *widget,
-                                    });
-                                }
-                            }
-                            if !diff.child_diffs.is_empty() {
-                                child_diffs.push((new_idx, diff));
-                            }
+                            // Store child diff for recursive processing
+                            child_diffs.push((new_idx, diff));
                         }
                     }
                     

@@ -100,6 +100,14 @@ impl Widget for Padding {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Padding {
+            child: self.child.clone_boxed(),
+            padding: self.padding,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Padding widget

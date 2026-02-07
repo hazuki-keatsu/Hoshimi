@@ -151,6 +151,16 @@ impl Widget for Align {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Align {
+            child: self.child.clone_boxed(),
+            alignment: self.alignment,
+            width_factor: self.width_factor,
+            height_factor: self.height_factor,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Align widget

@@ -175,6 +175,15 @@ impl Widget for GestureDetector {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(GestureDetector {
+            child: self.child.clone_boxed(),
+            config: self.config.clone(),
+            absorb_events: self.absorb_events,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for GestureDetector widget

@@ -136,6 +136,10 @@ impl Widget for Text {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(self.clone())
+    }
 }
 
 /// Render object for Text widget

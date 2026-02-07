@@ -120,6 +120,17 @@ impl Widget for AnimatedScale {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(AnimatedScale {
+            child: self.child.clone_boxed(),
+            scale: self.scale,
+            duration: self.duration,
+            curve: self.curve,
+            alignment: self.alignment,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// RenderObject for AnimatedScale

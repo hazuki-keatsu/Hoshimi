@@ -99,6 +99,15 @@ impl Widget for Center {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Center {
+            child: self.child.clone_boxed(),
+            width_factor: self.width_factor,
+            height_factor: self.height_factor,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Center widget

@@ -67,4 +67,9 @@ pub trait Widget: Debug + Any {
     
     /// Convert to Any for down-casting
     fn as_any(&self) -> &dyn Any;
+    
+    /// Clone this widget into a boxed trait object
+    /// 
+    /// Required for caching widget trees for diffing.
+    fn clone_boxed(&self) -> Box<dyn Widget>;
 }

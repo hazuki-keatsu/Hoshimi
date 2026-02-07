@@ -117,6 +117,17 @@ impl Widget for AnimatedPosition {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(AnimatedPosition {
+            child: self.child.clone_boxed(),
+            x: self.x,
+            y: self.y,
+            duration: self.duration,
+            curve: self.curve,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// RenderObject for AnimatedPosition

@@ -153,6 +153,15 @@ impl Widget for SizedBox {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(SizedBox {
+            child: self.child.as_ref().map(|c| c.clone_boxed()),
+            width: self.width,
+            height: self.height,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for SizedBox widget

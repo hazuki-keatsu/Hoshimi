@@ -179,6 +179,17 @@ impl Widget for SlideTransition {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(SlideTransition {
+            child: self.child.clone_boxed(),
+            visible: self.visible,
+            direction: self.direction,
+            duration: self.duration,
+            curve: self.curve,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// RenderObject for SlideTransition

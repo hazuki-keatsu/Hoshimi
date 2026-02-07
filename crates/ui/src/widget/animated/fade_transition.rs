@@ -119,6 +119,16 @@ impl Widget for FadeTransition {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(FadeTransition {
+            child: self.child.clone_boxed(),
+            visible: self.visible,
+            duration: self.duration,
+            curve: self.curve,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// RenderObject for FadeTransition

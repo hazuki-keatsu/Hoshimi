@@ -153,6 +153,16 @@ impl Widget for Stack {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Stack {
+            children: self.children.iter().map(|c| c.clone_boxed()).collect(),
+            alignment: self.alignment,
+            fit: self.fit,
+            clip_behavior: self.clip_behavior,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Stack widget

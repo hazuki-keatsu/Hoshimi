@@ -156,6 +156,17 @@ impl Widget for Column {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Column {
+            children: self.children.iter().map(|c| c.clone_boxed()).collect(),
+            main_axis_alignment: self.main_axis_alignment,
+            cross_axis_alignment: self.cross_axis_alignment,
+            main_axis_size: self.main_axis_size,
+            spacing: self.spacing,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Column widget

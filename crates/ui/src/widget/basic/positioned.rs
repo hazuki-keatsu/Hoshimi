@@ -179,6 +179,19 @@ impl Widget for Positioned {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Positioned {
+            child: self.child.clone_boxed(),
+            left: self.left,
+            top: self.top,
+            right: self.right,
+            bottom: self.bottom,
+            width: self.width,
+            height: self.height,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Positioned widget

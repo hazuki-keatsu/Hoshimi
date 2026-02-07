@@ -270,6 +270,25 @@ impl Widget for ChoiceMenu {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(ChoiceMenu {
+            options: self.options.clone(),
+            title: self.title.clone(),
+            layout: self.layout,
+            text_style: self.text_style.clone(),
+            disabled_style: self.disabled_style.clone(),
+            title_style: self.title_style.clone(),
+            button_decoration: self.button_decoration.clone(),
+            hover_decoration: self.hover_decoration.clone(),
+            selected_decoration: self.selected_decoration.clone(),
+            button_padding: self.button_padding,
+            spacing: self.spacing,
+            alignment: self.alignment,
+            margin: self.margin,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for ChoiceMenu widget

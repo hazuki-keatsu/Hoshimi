@@ -203,6 +203,19 @@ impl Widget for Container {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(Container {
+            child: self.child.as_ref().map(|c| c.clone_boxed()),
+            padding: self.padding,
+            margin: self.margin,
+            width: self.width,
+            height: self.height,
+            decoration: self.decoration.clone(),
+            alignment: self.alignment,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for Container widget

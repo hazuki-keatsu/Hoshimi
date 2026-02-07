@@ -249,6 +249,23 @@ impl Widget for DialogBox {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(DialogBox {
+            speaker: self.speaker.clone(),
+            text: self.text.clone(),
+            style: self.style,
+            text_reveal: self.text_reveal,
+            text_style: self.text_style.clone(),
+            speaker_style: self.speaker_style.clone(),
+            decoration: self.decoration.clone(),
+            padding: self.padding,
+            alignment: self.alignment,
+            margin: self.margin,
+            show_continue: self.show_continue,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// Render object for DialogBox widget

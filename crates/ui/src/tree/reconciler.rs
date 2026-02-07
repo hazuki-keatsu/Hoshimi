@@ -201,8 +201,32 @@ impl Reconciler {
         for (index, diff) in child_diffs {
             let mut children = render_object.children_mut();
             if let Some(child) = children.get_mut(*index) {
-                // Apply nested operations recursively
-                // Note: We can't easily pass the widget here, so we just handle the child diffs
+                // Apply operations for this child
+                for op in &diff.operations {
+                    match op {
+                        DiffOperation::Update { index: op_idx, widget } => {
+                            if *op_idx == 0 {
+                                // index 0 means update the child itself
+                                Self::update_render_object(*child, *widget);
+                            } else {
+                                // Update a nested child (1-based index)
+                                let mut nested_children = child.children_mut();
+                                if let Some(nested_child) = nested_children.get_mut(*op_idx - 1) {
+                                    Self::update_render_object(*nested_child, *widget);
+                                }
+                            }
+                        }
+                        DiffOperation::Remove { index: child_idx } => {
+                            Self::remove_child(*child, *child_idx);
+                        }
+                        DiffOperation::Insert { index: child_idx, widget } => {
+                            Self::insert_child(*child, *child_idx, *widget);
+                        }
+                        _ => {}
+                    }
+                }
+                
+                // Recursively handle nested child_diffs
                 Self::reconcile_children(*child, &diff.child_diffs);
             }
         }

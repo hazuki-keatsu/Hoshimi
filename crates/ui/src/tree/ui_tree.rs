@@ -3,7 +3,6 @@
 //! Manages the widget and render object trees with incremental updates
 //! using the diff and reconciler system.
 
-use std::any::TypeId;
 use std::collections::HashMap;
 
 use hoshimi_shared::{Constraints, Size};
@@ -24,8 +23,8 @@ pub struct UiTree {
     /// Root render object
     root: Option<Box<dyn RenderObject>>,
     
-    /// Cached widget type ID for the root (used for diff type comparison)
-    root_widget_type: Option<TypeId>,
+    /// Cached widget tree for diffing
+    root_widget: Option<Box<dyn Widget>>,
     
     /// Key-based render object cache for diffing
     key_cache: HashMap<WidgetKey, usize>,
@@ -54,7 +53,7 @@ impl UiTree {
     pub fn new() -> Self {
         Self {
             root: None,
-            root_widget_type: None,
+            root_widget: None,
             key_cache: HashMap::new(),
             event_queue: InputEventQueue::new(),
             pending_messages: Vec::new(),
@@ -84,8 +83,8 @@ impl UiTree {
         // Build new render tree using reconciler
         let render_object = Reconciler::build_tree(&widget);
         
-        // Cache widget type for future diffing
-        self.root_widget_type = Some(widget.widget_type());
+        // Cache widget for future diffing
+        self.root_widget = Some(widget.clone_boxed());
         self.root = Some(render_object);
         self.key_cache.clear();
         self.needs_layout = true;
@@ -95,112 +94,43 @@ impl UiTree {
     /// Update the root widget using diff algorithm
     /// 
     /// This performs an incremental update by:
-    /// 1. Comparing the new widget with the existing tree
+    /// 1. Comparing the new widget with the existing tree using WidgetDiffer
     /// 2. Computing minimal diff operations
-    /// 3. Applying only necessary changes via the reconciler
+    /// 3. Applying only necessary changes via the Reconciler
     pub fn update_root(&mut self, widget: &dyn Widget) {
-        match (&mut self.root, self.root_widget_type) {
-            (Some(root), Some(old_type)) => {
-                // Check if widget type changed
-                if old_type != widget.widget_type() {
-                    // Type changed - need full replacement
-                    debug!("Root widget type changed, rebuilding tree");
+        match (&mut self.root, &self.root_widget) {
+            (Some(root), Some(old_widget)) => {
+                if let Some(diff) = WidgetDiffer::diff_widget(old_widget.as_ref(), widget) {
+                    // Apply diff via reconciler
+                    trace!("Applying incremental diff update");
+                    Reconciler::reconcile(root.as_mut(), widget, &diff);
+                } else {
+                    // Types incompatible - full replacement
+                    debug!("Widget types incompatible, replacing subtree");
                     let new_root = Reconciler::replace_subtree(root.as_mut(), widget);
                     self.root = Some(new_root);
-                    self.root_widget_type = Some(widget.widget_type());
-                } else {
-                    // Same type - try incremental update
-                    trace!("Attempting incremental update of root widget");
-                    
-                    // For now, we do a simple update since we don't cache the old widget
-                    // A full implementation would cache the old widget tree for diffing
-                    if widget.should_update(widget) {
-                        widget.update_render_object(root.as_mut());
-                        root.on_update();
-                    }
-                    
-                    // Recursively update children
-                    Self::update_children_recursive(root.as_mut(), widget);
                 }
-                self.needs_layout = true;
-                self.needs_paint = true;
             }
             _ => {
                 // No existing root, build new tree
                 debug!("No existing root, building new tree");
-                let render_object = Reconciler::build_tree(widget);
-                self.root_widget_type = Some(widget.widget_type());
-                self.root = Some(render_object);
-                self.needs_layout = true;
-                self.needs_paint = true;
+                self.root = Some(Reconciler::build_tree(widget));
             }
         }
+        self.root_widget = Some(widget.clone_boxed());
+        self.needs_layout = true;
+        self.needs_paint = true;
     }
     
-    /// Recursively update children of a render object
-    fn update_children_recursive(render_object: &mut dyn RenderObject, widget: &dyn Widget) {
-        let widget_children = widget.children();
-        
-        let ro_child_count = render_object.children_mut().len();
-        
-        // Handle matching children - update existing ones
-        {
-            let ro_children = render_object.children_mut();
-            for (ro_child, w_child) in ro_children.into_iter().zip(widget_children.iter()) {
-                // Update child
-                w_child.update_render_object(ro_child);
-                ro_child.on_update();
-                
-                // Recurse
-                Self::update_children_recursive(ro_child, *w_child);
-            }
-        }
-        
-        // Handle added children
-        if widget_children.len() > ro_child_count {
-            for w_child in &widget_children[ro_child_count..] {
-                let new_child = Reconciler::build_tree(*w_child);
-                render_object.add_child(new_child);
-            }
-        }
-        
-        // Handle removed children (in reverse order)
-        if ro_child_count > widget_children.len() {
-            for i in (widget_children.len()..ro_child_count).rev() {
-                if let Some(mut removed) = render_object.remove_child(i) {
-                    Reconciler::unmount_recursive(removed.as_mut());
-                }
-            }
-        }
-    }
-    
-    /// Update with full diffing support
+    /// Update with explicit old and new widget trees
     /// 
-    /// This method performs a complete diff between old and new widget trees.
-    /// Requires caching the old widget tree (more memory but better performance).
-    pub fn update_with_diff(&mut self, old_widget: &dyn Widget, new_widget: &dyn Widget) {
-        if let Some(ref mut root) = self.root {
-            if let Some(diff_result) = WidgetDiffer::diff_widget(old_widget, new_widget) {
-                // Apply diff via reconciler
-                Reconciler::reconcile(root.as_mut(), new_widget, &diff_result);
-                self.root_widget_type = Some(new_widget.widget_type());
-            } else {
-                // Types incompatible - full replacement
-                debug!("Widget types incompatible, replacing subtree");
-                let new_root = Reconciler::replace_subtree(root.as_mut(), new_widget);
-                self.root = Some(new_root);
-                self.root_widget_type = Some(new_widget.widget_type());
-            }
-            self.needs_layout = true;
-            self.needs_paint = true;
-        } else {
-            // No existing root
-            let render_object = Reconciler::build_tree(new_widget);
-            self.root_widget_type = Some(new_widget.widget_type());
-            self.root = Some(render_object);
-            self.needs_layout = true;
-            self.needs_paint = true;
-        }
+    /// This method is provided for cases where you have both the old and new
+    /// widget trees available. For most cases, prefer using `update_root()`
+    /// which automatically uses the cached widget tree.
+    #[deprecated(since = "0.2.0", note = "use update_root() instead, which now caches the widget tree")]
+    pub fn update_with_diff(&mut self, _old_widget: &dyn Widget, new_widget: &dyn Widget) {
+        // Delegate to update_root which now handles diffing internally
+        self.update_root(new_widget);
     }
     
     /// Set size constraints

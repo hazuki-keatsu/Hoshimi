@@ -113,6 +113,16 @@ impl Widget for AnimatedOpacity {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_boxed(&self) -> Box<dyn Widget> {
+        Box::new(AnimatedOpacity {
+            child: self.child.clone_boxed(),
+            opacity: self.opacity,
+            duration: self.duration,
+            curve: self.curve,
+            key: self.key.clone(),
+        })
+    }
 }
 
 /// RenderObject for AnimatedOpacity
