@@ -40,7 +40,7 @@ impl Text {
         Self {
             content: content.into(),
             style: TextStyle::default(),
-            align: TextAlign::Left,
+            align: TextAlign::Center,
             max_lines: None,
             overflow: TextOverflow::Clip,
             key: None,

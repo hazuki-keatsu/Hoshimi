@@ -732,8 +732,8 @@ pub enum MainAxisSize {
 /// Text alignment
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TextAlign {
-    #[default]
     Left,
+    #[default]
     Center,
     Right,
     Justify,
