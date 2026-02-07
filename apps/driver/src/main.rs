@@ -1,8 +1,8 @@
 mod event_adapter;
 
-use hoshimi_renderer::{Color, SceneRenderer};
+use hoshimi_renderer::{Color, SkiaRenderer};
 use hoshimi_shared::logger::{self, ExpectLog};
-use hoshimi_ui::painter::SceneRendererPainter;
+use hoshimi_ui::painter::SkiaRendererPainter;
 use hoshimi_ui::prelude::*;
 use hoshimi_ui::animation::Curve;
 use sdl3;
@@ -39,7 +39,7 @@ fn main() {
             .unwrap_or(std::ptr::null())
     });
 
-    let mut renderer = SceneRenderer::new(1280, 720).expect_log("SceneRenderer: Fail to init.");
+    let mut renderer = SkiaRenderer::new(1280, 720).expect_log("SkiaRenderer: Fail to init.");
 
     // 预加载图片资源
     renderer
@@ -116,7 +116,7 @@ fn main() {
             .begin_frame(Some(Color::from_rgb8(30, 30, 40)))
             .expect_log("Hoshimi Driver: Fail to begin a new frame");
 
-        let mut painter = SceneRendererPainter::new(&mut renderer);
+        let mut painter = SkiaRendererPainter::new(&mut renderer);
         ui_tree.paint(&mut painter);
 
         renderer.end_frame().unwrap();

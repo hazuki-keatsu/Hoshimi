@@ -1,27 +1,27 @@
-//! SceneRenderer Adapter
+//! SkiaRenderer Adapter
 //!
-//! Implements the Painter trait using the Hoshimi SceneRenderer.
+//! Implements the Painter trait using the Hoshimi SkiaRenderer.
 
-use hoshimi_renderer::scene_renderer::SceneRenderer;
+use hoshimi_renderer::skia_renderer::SkiaRenderer;
 use hoshimi_shared::{
     BorderRadius, Color, EdgeInsets, Offset, Rect, Size, TextStyle,
 };
 
 use crate::painter::Painter;
 
-/// Adapter that wraps SceneRenderer to implement the Painter trait
-pub struct SceneRendererPainter<'a> {
-    renderer: &'a mut SceneRenderer,
+/// Adapter that wraps SkiaRenderer to implement the Painter trait
+pub struct SkiaRendererPainter<'a> {
+    renderer: &'a mut SkiaRenderer,
 }
 
-impl<'a> SceneRendererPainter<'a> {
-    /// Create a new painter wrapping the given SceneRenderer
-    pub fn new(renderer: &'a mut SceneRenderer) -> Self {
+impl<'a> SkiaRendererPainter<'a> {
+    /// Create a new painter wrapping the given SkiaRenderer
+    pub fn new(renderer: &'a mut SkiaRenderer) -> Self {
         Self { renderer }
     }
 }
 
-impl<'a> Painter for SceneRendererPainter<'a> {
+impl<'a> Painter for SkiaRendererPainter<'a> {
     // ========================================================================
     // State Management
     // ========================================================================
@@ -57,7 +57,7 @@ impl<'a> Painter for SceneRendererPainter<'a> {
     }
     
     fn rotate(&mut self, radians: f32) {
-        // SceneRenderer uses degrees
+        // SkiaRenderer uses degrees
         self.renderer.rotate(radians.to_degrees());
     }
     

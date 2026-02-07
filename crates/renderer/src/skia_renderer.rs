@@ -1,10 +1,10 @@
-//! # SceneRenderer
+//! # SkiaRenderer
 //!
 //! A stateless rendering API that encapsulates Skia's drawing capabilities.
 //!
 //! ## Design Philosophy
 //!
-//! SceneRenderer is a **stateless** rendering tool:
+//! SkiaRenderer is a **stateless** rendering tool:
 //! - It does NOT manage rendering state (colors, fonts, etc.)
 //! - State management is the responsibility of the Widget/Component layer
 //! - Each draw call receives all necessary parameters explicitly
@@ -21,7 +21,7 @@
 //! }
 //!
 //! impl Widget for MyButton {
-//!     fn render(&self, renderer: &mut SceneRenderer) -> RendererResult<()> {
+//!     fn render(&self, renderer: &mut SkiaRenderer) -> RendererResult<()> {
 //!         // Pass state directly to draw calls
 //!         renderer.fill_rect(self.rect, self.color)?;
 //!         renderer.draw_text(&self.text, pos, 16.0, Color::white())?;
@@ -44,11 +44,11 @@ use skia_safe::{
 use crate::error::{RendererError, RendererResult};
 use crate::types::{Color, Offset, Rect, Size, rect_to_rrect_uniform};
 
-/// SceneRenderer - A stateless rendering API
+/// SkiaRenderer - A stateless rendering API
 ///
 /// Manages GPU resources and provides drawing primitives.
 /// All rendering state (colors, sizes, etc.) is passed explicitly to each draw call.
-pub struct SceneRenderer {
+pub struct SkiaRenderer {
     // Skia core resources
     context: gpu::DirectContext,
     surface: Surface,
@@ -65,8 +65,8 @@ pub struct SceneRenderer {
     font_mgr: FontMgr,
 }
 
-impl SceneRenderer {
-    /// Create a new SceneRenderer
+impl SkiaRenderer {
+    /// Create a new SkiaRenderer
     ///
     /// ## Arguments
     /// * `width` - Surface width
@@ -83,7 +83,7 @@ impl SceneRenderer {
         let surface = Self::create_surface_internal(&mut context, width, height)?;
         let font_mgr = FontMgr::new();
 
-        logger::info!("SceneRenderer: Initialized ({}x{})", width, height);
+        logger::info!("SkiaRenderer: Initialized ({}x{})", width, height);
 
         Ok(Self {
             context,
@@ -118,7 +118,7 @@ impl SceneRenderer {
         self.surface = Self::create_surface_internal(&mut self.context, width, height)?;
         self.width = width;
         self.height = height;
-        logger::debug!("SceneRenderer: Resized to {}x{}", width, height);
+        logger::debug!("SkiaRenderer: Resized to {}x{}", width, height);
         Ok(())
     }
 
@@ -557,7 +557,7 @@ impl SceneRenderer {
             .ok_or_else(|| RendererError::ImageLoadFailed(key.to_string()))?;
 
         self.image_cache.insert(key.to_string(), image);
-        logger::debug!("SceneRenderer: Loaded image from data '{}'", key);
+        logger::debug!("SkiaRenderer: Loaded image from data '{}'", key);
         Ok(())
     }
 
@@ -576,7 +576,7 @@ impl SceneRenderer {
             .ok_or_else(|| RendererError::FontLoadFailed(key.to_string()))?;
 
         self.font_cache.insert(key.to_string(), typeface);
-        logger::debug!("SceneRenderer: Loaded font from data '{}'", key);
+        logger::debug!("SkiaRenderer: Loaded font from data '{}'", key);
         Ok(())
     }
 
@@ -598,13 +598,13 @@ impl SceneRenderer {
     /// Clear image cache
     pub fn clear_image_cache(&mut self) {
         self.image_cache.clear();
-        logger::debug!("SceneRenderer: Image cache cleared");
+        logger::debug!("SkiaRenderer: Image cache cleared");
     }
 
     /// Clear font cache
     pub fn clear_font_cache(&mut self) {
         self.font_cache.clear();
-        logger::debug!("SceneRenderer: Font cache cleared");
+        logger::debug!("SkiaRenderer: Font cache cleared");
     }
 
     /// Clear all caches
@@ -674,7 +674,7 @@ impl SceneRenderer {
             Image::from_encoded(data).ok_or_else(|| RendererError::ImageLoadFailed(path.to_string()))?;
 
         self.image_cache.insert(path.to_string(), image.clone());
-        logger::debug!("SceneRenderer: Loaded image '{}'", path);
+        logger::debug!("SkiaRenderer: Loaded image '{}'", path);
         Ok(image)
     }
 
@@ -691,7 +691,7 @@ impl SceneRenderer {
             .ok_or_else(|| RendererError::FontLoadFailed(path.to_string()))?;
 
         self.font_cache.insert(path.to_string(), typeface.clone());
-        logger::debug!("SceneRenderer: Loaded font '{}'", path);
+        logger::debug!("SkiaRenderer: Loaded font '{}'", path);
         Ok(typeface)
     }
 
