@@ -8,6 +8,8 @@ use std::fmt::Debug;
 
 use hoshimi_shared::{Offset, Size};
 
+use crate::animation::Curve;
+
 // ============================================================================
 // Page Parameters
 // ============================================================================
@@ -208,12 +210,16 @@ pub enum TransitionType {
         direction: SlideDirection,
         /// Duration in seconds
         duration: f32,
+        /// Animation curve (optional, uses default if None)
+        curve: Option<Curve>,
     },
     
     /// Fade transition (cross-fade)
     Fade {
         /// Duration in seconds
         duration: f32,
+        /// Animation curve (optional, uses default if None)
+        curve: Option<Curve>,
     },
     
     /// Scale transition (zoom in/out)
@@ -226,6 +232,8 @@ pub enum TransitionType {
         end_scale: f32,
         /// Duration in seconds
         duration: f32,
+        /// Animation curve (optional, uses default if None)
+        curve: Option<Curve>,
     },
     
     /// Combined slide and fade
@@ -234,12 +242,16 @@ pub enum TransitionType {
         direction: SlideDirection,
         /// Duration in seconds
         duration: f32,
+        /// Animation curve (optional, uses default if None)
+        curve: Option<Curve>,
     },
     
     /// Custom transition with user-defined tweens
     Custom {
         /// Custom transition builder
         builder: CustomTransitionBuilder,
+        /// Animation curve (optional, uses default if None)
+        curve: Option<Curve>,
     },
 }
 
@@ -249,6 +261,7 @@ impl TransitionType {
         Self::Slide {
             direction,
             duration: 0.3,
+            curve: None,
         }
     }
     
@@ -274,12 +287,12 @@ impl TransitionType {
     
     /// Create a fade transition with default duration
     pub fn fade() -> Self {
-        Self::Fade { duration: 0.3 }
+        Self::Fade { duration: 0.3, curve: None }
     }
     
     /// Create a fade transition with custom duration
     pub fn fade_with_duration(duration: f32) -> Self {
-        Self::Fade { duration }
+        Self::Fade { duration, curve: None }
     }
     
     /// Create a scale transition
@@ -289,6 +302,7 @@ impl TransitionType {
             start_scale,
             end_scale: 1.0,
             duration: 0.3,
+            curve: None,
         }
     }
     
@@ -304,6 +318,7 @@ impl TransitionType {
             start_scale: 1.0,
             end_scale: 0.8,
             duration: 0.3,
+            curve: None,
         }
     }
     
@@ -312,6 +327,7 @@ impl TransitionType {
         Self::SlideAndFade {
             direction,
             duration: 0.3,
+            curve: None,
         }
     }
     
@@ -320,7 +336,7 @@ impl TransitionType {
         match &mut self {
             Self::None => {}
             Self::Slide { duration: d, .. } => *d = duration,
-            Self::Fade { duration: d } => *d = duration,
+            Self::Fade { duration: d, .. } => *d = duration,
             Self::Scale { duration: d, .. } => *d = duration,
             Self::SlideAndFade { duration: d, .. } => *d = duration,
             Self::Custom { .. } => {}
@@ -333,10 +349,10 @@ impl TransitionType {
         match self {
             Self::None => 0.0,
             Self::Slide { duration, .. } => *duration,
-            Self::Fade { duration } => *duration,
+            Self::Fade { duration, .. } => *duration,
             Self::Scale { duration, .. } => *duration,
             Self::SlideAndFade { duration, .. } => *duration,
-            Self::Custom { builder } => builder.duration,
+            Self::Custom { builder, .. } => builder.duration,
         }
     }
     
@@ -344,24 +360,53 @@ impl TransitionType {
     pub fn reverse(&self) -> Self {
         match self {
             Self::None => Self::None,
-            Self::Slide { direction, duration } => Self::Slide {
+            Self::Slide { direction, duration, curve } => Self::Slide {
                 direction: direction.reverse(),
                 duration: *duration,
+                curve: *curve,
             },
-            Self::Fade { duration } => Self::Fade { duration: *duration },
-            Self::Scale { anchor, start_scale, end_scale, duration } => Self::Scale {
+            Self::Fade { duration, curve } => Self::Fade { duration: *duration, curve: *curve },
+            Self::Scale { anchor, start_scale, end_scale, duration, curve } => Self::Scale {
                 anchor: *anchor,
                 start_scale: *end_scale,
                 end_scale: *start_scale,
                 duration: *duration,
+                curve: *curve,
             },
-            Self::SlideAndFade { direction, duration } => Self::SlideAndFade {
+            Self::SlideAndFade { direction, duration, curve } => Self::SlideAndFade {
                 direction: direction.reverse(),
                 duration: *duration,
+                curve: *curve,
             },
-            Self::Custom { builder } => Self::Custom {
+            Self::Custom { builder, curve } => Self::Custom {
                 builder: builder.clone(),
+                curve: *curve,
             },
+        }
+    }
+    
+    /// Set the animation curve for this transition
+    pub fn with_curve(mut self, curve: Curve) -> Self {
+        match &mut self {
+            Self::None => {}
+            Self::Slide { curve: c, .. } => *c = Some(curve),
+            Self::Fade { curve: c, .. } => *c = Some(curve),
+            Self::Scale { curve: c, .. } => *c = Some(curve),
+            Self::SlideAndFade { curve: c, .. } => *c = Some(curve),
+            Self::Custom { curve: c, .. } => *c = Some(curve),
+        }
+        self
+    }
+    
+    /// Get the animation curve for this transition (if set)
+    pub fn curve(&self) -> Option<Curve> {
+        match self {
+            Self::None => None,
+            Self::Slide { curve, .. } => *curve,
+            Self::Fade { curve, .. } => *curve,
+            Self::Scale { curve, .. } => *curve,
+            Self::SlideAndFade { curve, .. } => *curve,
+            Self::Custom { curve, .. } => *curve,
         }
     }
 }

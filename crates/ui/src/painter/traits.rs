@@ -95,6 +95,20 @@ pub trait Painter {
     fn draw_line(&mut self, start: Offset, end: Offset, color: Color, stroke_width: f32);
     
     // ========================================================================
+    // Blur Effects (for shadows)
+    // ========================================================================
+    
+    /// Fill a rectangle with blur effect
+    ///
+    /// Used for rendering soft shadows. The blur_radius controls the softness.
+    fn fill_blurred_rect(&mut self, rect: Rect, color: Color, blur_radius: f32);
+    
+    /// Fill a rounded rectangle with blur effect
+    ///
+    /// Used for rendering soft shadows on rounded elements.
+    fn fill_blurred_rounded_rect(&mut self, rect: Rect, radius: BorderRadius, color: Color, blur_radius: f32);
+    
+    // ========================================================================
     // Box Decoration
     // ========================================================================
     
@@ -102,13 +116,17 @@ pub trait Painter {
     fn draw_box_decoration(&mut self, rect: Rect, decoration: &BoxDecoration) {
         // Draw shadow first (behind everything)
         if let Some(shadow) = &decoration.box_shadow {
-            let shadow_rect = rect.translate(shadow.offset);
+            // Apply spread_radius to expand the shadow rect
+            let shadow_rect = rect
+                .translate(shadow.offset)
+                .inflate(shadow.spread_radius);
             let shadow_color = shadow.color;
+            let blur_radius = shadow.blur_radius;
             
             if let Some(radius) = &decoration.border_radius {
-                self.fill_rounded_rect(shadow_rect, *radius, shadow_color);
+                self.fill_blurred_rounded_rect(shadow_rect, *radius, shadow_color, blur_radius);
             } else {
-                self.fill_rect(shadow_rect, shadow_color);
+                self.fill_blurred_rect(shadow_rect, shadow_color, blur_radius);
             }
         }
         
@@ -145,13 +163,19 @@ pub trait Painter {
     
     /// Draw text aligned within a rectangle
     fn draw_text_aligned(&mut self, text: &str, rect: Rect, style: &TextStyle, align: TextAlign) {
+        // For Center alignment, use draw_text_centered which properly handles
+        // visual bounds and left side bearing for accurate centering
+        if align == TextAlign::Center {
+            self.draw_text_centered(text, rect, style);
+            return;
+        }
+        
         let size = self.measure_text(text, style);
         
         let x = match align {
-            TextAlign::Left => rect.x,
-            TextAlign::Center => rect.x + (rect.width - size.width) / 2.0,
+            TextAlign::Left | TextAlign::Justify => rect.x,
+            TextAlign::Center => unreachable!(), // Handled above
             TextAlign::Right => rect.x + rect.width - size.width,
-            TextAlign::Justify => rect.x, // For single line, same as left
         };
         
         // Vertically center

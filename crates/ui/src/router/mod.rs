@@ -68,7 +68,7 @@ pub use snapshot::{
     SnapshotPainter, SnapshotPainterExt, SurfaceHandle, TextureHandle,
 };
 pub use transition::{
-    ActiveTransition, TransitionBuilder, TransitionState,
+    ActiveTransition, PageTransform, TransitionBuilder, TransitionState,
     presets as transition_presets,
 };
 pub use types::{
@@ -78,7 +78,7 @@ pub use types::{
 
 use std::collections::HashMap;
 
-use hoshimi_shared::{Constraints, Size};
+use hoshimi_shared::{Constraints, Offset, Rect, Size};
 use tracing::{debug, warn};
 
 use crate::events::{EventResult, InputEvent, UIMessage};
@@ -673,60 +673,84 @@ impl Router {
         let transition = self.active_transition.take();
         
         if let Some(transition) = transition {
-            // Check if this was a pop transition
             if transition.is_complete() {
-                // Find pages that were transitioning
-                for entry in &mut self.stack {
-                    match entry.state {
-                        PageState::TransitioningOut => {
-                            // This page was being popped
-                            entry.state = PageState::Paused;
+                if transition.is_reverse() {
+                    // Pop transition completed — remove the leaving page
+                    self.complete_pop();
+                } else {
+                    // Push transition completed — update page states
+                    for entry in &mut self.stack {
+                        match entry.state {
+                            PageState::TransitioningOut => {
+                                entry.state = PageState::Paused;
+                            }
+                            PageState::TransitioningIn => {
+                                entry.state = PageState::Active;
+                            }
+                            _ => {}
                         }
-                        PageState::TransitioningIn => {
-                            // This page is now active
-                            entry.state = PageState::Active;
-                        }
-                        _ => {}
                     }
                 }
-                
-                // If there was a page transitioning out that should be removed
-                // (this happens for pop operations)
-                // We need to check the transition direction
-                // For now, we'll leave the stack as-is since push adds pages
-                // and pop handles removal in complete_pop
             }
         }
     }
     
     /// Paint the current state to the painter
     pub fn paint(&mut self, painter: &mut dyn Painter) {
-        // If there's an active transition, paint it
+        // If there's an active transition, paint both pages with transforms
         if let Some(ref transition) = self.active_transition {
-            // Paint the transition effect
-            // In a full implementation, this would use the snapshots
-            // For now, we paint both pages with the transition effect
-            transition.paint(painter);
-            
-            // Also paint the actual UI trees
             let stack_len = self.stack.len();
-            let _progress = transition.progress();
-            
-            // Paint the "from" page (fading out)
-            if stack_len >= 2 {
-                painter.save();
-                // Apply from transformation based on progress
-                // (simplified - full implementation would match transition type)
-                self.stack[stack_len - 2].ui_tree.paint(painter);
-                painter.restore();
+            if stack_len < 2 {
+                // Fallback: just paint current page
+                if let Some(entry) = self.stack.last_mut() {
+                    entry.ui_tree.paint(painter);
+                }
+                return;
             }
-            
-            // Paint the "to" page (fading in)
-            if stack_len >= 1 {
+
+            let (from_xform, to_xform) = transition.get_live_transforms();
+            let screen_rect = Rect::from_size(transition.size());
+
+            // For push: from = stack[len-2] (old page), to = stack[len-1] (new page)
+            // For pop:  from = stack[len-1] (leaving page), to = stack[len-2] (returning page)
+            let (from_idx, to_idx) = if transition.is_reverse() {
+                (stack_len - 1, stack_len - 2)
+            } else {
+                (stack_len - 2, stack_len - 1)
+            };
+
+            // Determine paint order for scale transitions:
+            // The page with smaller scale should be painted on top (last)
+            // so we can see it shrinking away
+            let from_scale = from_xform.scale.map(|(sx, _, _)| sx).unwrap_or(1.0);
+            let to_scale = to_xform.scale.map(|(sx, _, _)| sx).unwrap_or(1.0);
+            let paint_from_on_top = from_scale < to_scale;
+
+            // Helper to paint a page with transform
+            let paint_page = |painter: &mut dyn Painter,
+                              xform: &PageTransform,
+                              idx: usize,
+                              stack: &mut [PageEntry]| {
                 painter.save();
-                // Apply to transformation based on progress
-                self.stack[stack_len - 1].ui_tree.paint(painter);
+                painter.clip_rect(screen_rect);
+                if let Some((sx, sy, anchor)) = xform.scale {
+                    painter.translate(anchor);
+                    painter.scale(sx, sy);
+                    painter.translate(Offset::new(-anchor.x, -anchor.y));
+                }
+                painter.translate(xform.offset);
+                stack[idx].ui_tree.paint(painter);
                 painter.restore();
+            };
+
+            if paint_from_on_top {
+                // Paint "to" first (bottom), then "from" on top
+                paint_page(painter, &to_xform, to_idx, &mut self.stack);
+                paint_page(painter, &from_xform, from_idx, &mut self.stack);
+            } else {
+                // Paint "from" first (bottom), then "to" on top
+                paint_page(painter, &from_xform, from_idx, &mut self.stack);
+                paint_page(painter, &to_xform, to_idx, &mut self.stack);
             }
         } else {
             // Paint current page

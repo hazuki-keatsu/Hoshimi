@@ -100,6 +100,19 @@ impl<'a> Painter for SkiaRendererPainter<'a> {
     }
     
     // ========================================================================
+    // Blur Effects
+    // ========================================================================
+    
+    fn fill_blurred_rect(&mut self, rect: Rect, color: Color, blur_radius: f32) {
+        let _ = self.renderer.fill_blurred_rect(rect, color, blur_radius);
+    }
+    
+    fn fill_blurred_rounded_rect(&mut self, rect: Rect, radius: BorderRadius, color: Color, blur_radius: f32) {
+        let r = radius.uniform_radius().unwrap_or(radius.top_left);
+        let _ = self.renderer.fill_blurred_rounded_rect(rect, r, color, blur_radius);
+    }
+    
+    // ========================================================================
     // Text
     // ========================================================================
     

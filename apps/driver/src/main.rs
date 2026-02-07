@@ -1,7 +1,9 @@
 mod event_adapter;
 mod counter_page;
+mod animation_test_page;
 
 use counter_page::CounterPage;
+use animation_test_page::AnimationTestPage;
 use hoshimi_renderer::{Color, SkiaRenderer};
 use hoshimi_shared::logger::{self, ExpectLog};
 use hoshimi_ui::painter::SkiaRendererPainter;
@@ -142,6 +144,21 @@ fn handle_ui_message(message: &UIMessage, router: &mut Router) {
         UIMessage::Gesture { id, kind: GestureKind::Tap } => {
             logger::info!("UI Message: Tap on '{}'", id);
             
+            // Handle navigation
+            match id.as_str() {
+                "btn_to_animation_test" => {
+                    router.push(AnimationTestPage::new());
+                    logger::info!("Router: Navigated to Animation Test Page");
+                    return;
+                }
+                "btn_back_to_counter" => {
+                    router.pop();
+                    logger::info!("Router: Navigated back to Counter Page");
+                    return;
+                }
+                _ => {}
+            }
+            
             // Handle button clicks in CounterPage
             if let Some(page) = router.current_page_mut() {
                 if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
@@ -170,6 +187,8 @@ fn handle_ui_message(message: &UIMessage, router: &mut Router) {
             if let Some(page) = router.current_page_mut() {
                 if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
                     counter.set_button_pressed(id, true);
+                } else if let Some(anim_page) = page.as_any_mut().downcast_mut::<AnimationTestPage>() {
+                    anim_page.set_button_pressed(true);
                 }
             }
         }
@@ -180,6 +199,8 @@ fn handle_ui_message(message: &UIMessage, router: &mut Router) {
             if let Some(page) = router.current_page_mut() {
                 if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
                     counter.set_button_pressed(id, false);
+                } else if let Some(anim_page) = page.as_any_mut().downcast_mut::<AnimationTestPage>() {
+                    anim_page.set_button_pressed(false);
                 }
             }
         }

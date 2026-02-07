@@ -17,7 +17,7 @@
 //! let value = tween.value_at(0.5); // Returns ~50.0 (depending on curve)
 //! ```
 
-use hoshimi_shared::{Color, Offset, Size};
+use hoshimi_shared::{BoxShadow, Color, Offset, Size};
 
 use super::curve::Curve;
 
@@ -81,6 +81,17 @@ impl Interpolate for Color {
             self.g.lerp(&other.g, t),
             self.b.lerp(&other.b, t),
             self.a.lerp(&other.a, t),
+        )
+    }
+}
+
+impl Interpolate for BoxShadow {
+    fn lerp(&self, other: &Self, t: f32) -> Self {
+        BoxShadow::new(
+            self.color.lerp(&other.color, t),
+            self.offset.lerp(&other.offset, t),
+            self.blur_radius.lerp(&other.blur_radius, t),
+            self.spread_radius.lerp(&other.spread_radius, t),
         )
     }
 }

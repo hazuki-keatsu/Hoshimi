@@ -328,6 +328,18 @@ impl Rect {
             height: self.height + insets.top + insets.bottom,
         }
     }
+
+    /// Create a new rectangle uniformly expanded (inflated) by the given amount
+    ///
+    /// Positive values expand the rectangle, negative values shrink it.
+    pub fn inflate(&self, amount: f32) -> Self {
+        Self {
+            x: self.x - amount,
+            y: self.y - amount,
+            width: self.width + amount * 2.0,
+            height: self.height + amount * 2.0,
+        }
+    }
 }
 
 /// Edge insets (padding/margin)

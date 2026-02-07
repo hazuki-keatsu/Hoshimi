@@ -176,10 +176,23 @@ impl RenderObject for TextRenderObject {
     impl_render_object_common!(state);
     
     fn layout(&mut self, constraints: Constraints) -> Size {
-        // For now, use a simple size calculation
-        // In a real implementation, this would measure the text properly
-        let char_count = self.content.chars().count() as f32;
-        let approx_width = char_count * self.style.font_size * 0.6;
+        // Calculate text width with better heuristics for different character types
+        // CJK characters are approximately square (width ≈ font_size)
+        // Latin characters are narrower (width ≈ font_size * 0.5)
+        let mut approx_width = 0.0;
+        for ch in self.content.chars() {
+            if is_cjk_char(ch) {
+                // CJK characters are roughly square
+                approx_width += self.style.font_size;
+            } else if ch.is_ascii() {
+                // ASCII characters are narrower
+                approx_width += self.style.font_size * 0.5;
+            } else {
+                // Other Unicode characters (emoji, etc.) - assume wider
+                approx_width += self.style.font_size * 0.8;
+            }
+        }
+        
         let line_height = self.style.line_height.unwrap_or(self.style.font_size * 1.2);
         
         let size = constraints.constrain(Size::new(approx_width, line_height));
@@ -194,4 +207,28 @@ impl RenderObject for TextRenderObject {
         let rect = self.state.get_rect();
         painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
     }
+}
+
+/// Check if a character is a CJK (Chinese, Japanese, Korean) character
+/// These characters are typically rendered as full-width/square glyphs
+fn is_cjk_char(ch: char) -> bool {
+    let code = ch as u32;
+    // CJK Unified Ideographs
+    (0x4E00..=0x9FFF).contains(&code)
+        // CJK Unified Ideographs Extension A
+        || (0x3400..=0x4DBF).contains(&code)
+        // CJK Unified Ideographs Extension B
+        || (0x20000..=0x2A6DF).contains(&code)
+        // CJK Compatibility Ideographs
+        || (0xF900..=0xFAFF).contains(&code)
+        // Hiragana
+        || (0x3040..=0x309F).contains(&code)
+        // Katakana
+        || (0x30A0..=0x30FF).contains(&code)
+        // Hangul Syllables
+        || (0xAC00..=0xD7AF).contains(&code)
+        // Fullwidth Latin characters
+        || (0xFF00..=0xFFEF).contains(&code)
+        // CJK Symbols and Punctuation
+        || (0x3000..=0x303F).contains(&code)
 }

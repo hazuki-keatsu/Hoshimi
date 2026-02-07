@@ -37,7 +37,7 @@ use skia_safe::gpu::gl::FramebufferInfo;
 use skia_safe::gpu::{Protected, SurfaceOrigin};
 use skia_safe::paint::Style as PaintStyle;
 use skia_safe::{
-    gpu, Canvas, Color as SkiaColor, ColorType, Data, Font, FontMgr, Image, Paint, Point,
+    gpu, Canvas, Color as SkiaColor, ColorType, Data, Font, FontMgr, Image, MaskFilter, Paint, Point,
     Rect as SkiaRect, Surface, Typeface,
 };
 
@@ -201,6 +201,57 @@ impl SkiaRenderer {
         Ok(())
     }
 
+    /// Fill a rectangle with blur effect (for shadows)
+    ///
+    /// # Arguments
+    /// * `rect` - The rectangle to fill
+    /// * `color` - Fill color
+    /// * `blur_radius` - Blur radius in pixels (CSS-style, will be converted to sigma)
+    pub fn fill_blurred_rect(
+        &mut self,
+        rect: Rect,
+        color: Color,
+        blur_radius: f32,
+    ) -> RendererResult<()> {
+        let mut paint = Self::create_fill_paint(color);
+        if blur_radius > 0.0 {
+            // Convert CSS blur_radius to Skia sigma: sigma ≈ blur_radius / 2
+            let sigma = blur_radius / 2.0;
+            if let Some(mask_filter) = MaskFilter::blur(skia_safe::BlurStyle::Normal, sigma, false) {
+                paint.set_mask_filter(mask_filter);
+            }
+        }
+        let skia_rect: SkiaRect = rect.into();
+        self.canvas().draw_rect(skia_rect, &paint);
+        Ok(())
+    }
+
+    /// Fill a rounded rectangle with blur effect (for rounded shadows)
+    ///
+    /// # Arguments
+    /// * `rect` - The rectangle to fill
+    /// * `radius` - Corner radius
+    /// * `color` - Fill color
+    /// * `blur_radius` - Blur radius in pixels (CSS-style)
+    pub fn fill_blurred_rounded_rect(
+        &mut self,
+        rect: Rect,
+        radius: f32,
+        color: Color,
+        blur_radius: f32,
+    ) -> RendererResult<()> {
+        let mut paint = Self::create_fill_paint(color);
+        if blur_radius > 0.0 {
+            let sigma = blur_radius / 2.0;
+            if let Some(mask_filter) = MaskFilter::blur(skia_safe::BlurStyle::Normal, sigma, false) {
+                paint.set_mask_filter(mask_filter);
+            }
+        }
+        let skia_rrect = rect_to_rrect_uniform(rect, radius);
+        self.canvas().draw_rrect(skia_rrect, &paint);
+        Ok(())
+    }
+
     /// Stroke a rounded rectangle outline
     pub fn stroke_rounded_rect(
         &mut self,
@@ -314,12 +365,16 @@ impl SkiaRenderer {
         let paint = Self::create_fill_paint(color);
         let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
 
-        let (text_width, _) = font.measure_str(text, Some(&paint));
+        // measure_str returns (advance_width, bounds_rect)
+        // We need to use bounds for accurate centering
+        let (_, bounds) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
         // Text height = descent - ascent (ascent is negative)
         let text_height = metrics.1.descent - metrics.1.ascent;
 
-        let x = rect.x + (rect.width - text_width) / 2.0;
+        // Use actual bounds width for horizontal centering
+        // Subtract bounds.left to account for left side bearing
+        let x = rect.x + (rect.width - bounds.width()) / 2.0 - bounds.left;
         // Calculate baseline position for vertical centering
         let y = rect.y + (rect.height - text_height) / 2.0 - metrics.1.ascent;
 
@@ -373,12 +428,16 @@ impl SkiaRenderer {
         let paint = Self::create_fill_paint(color);
         let font = Font::from_typeface(typeface, font_size);
 
-        let (text_width, _) = font.measure_str(text, Some(&paint));
+        // measure_str returns (advance_width, bounds_rect)
+        // We need to use bounds for accurate centering
+        let (_, bounds) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
         // Text height = descent - ascent (ascent is negative)
         let text_height = metrics.1.descent - metrics.1.ascent;
 
-        let x = rect.x + (rect.width - text_width) / 2.0;
+        // Use actual bounds width for horizontal centering
+        // Subtract bounds.left to account for left side bearing
+        let x = rect.x + (rect.width - bounds.width()) / 2.0 - bounds.left;
         // Calculate baseline position for vertical centering
         let y = rect.y + (rect.height - text_height) / 2.0 - metrics.1.ascent;
 

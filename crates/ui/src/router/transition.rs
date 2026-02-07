@@ -12,6 +12,48 @@ use super::snapshot::PageSnapshot;
 use super::types::{ScaleAnchor, SlideDirection, TransitionType};
 
 // ============================================================================
+// Page Transform (for live painting without snapshots)
+// ============================================================================
+
+/// Transform parameters for live page painting during transitions.
+///
+/// Used when snapshot-based rendering is unavailable. The caller applies
+/// these transforms to the painter before painting each page's UI tree.
+#[derive(Debug, Clone)]
+pub struct PageTransform {
+    /// Translation offset
+    pub offset: Offset,
+    /// Optional scale: (sx, sy, anchor_point)
+    pub scale: Option<(f32, f32, Offset)>,
+}
+
+impl PageTransform {
+    /// Identity transform (no change)
+    pub fn identity() -> Self {
+        Self {
+            offset: Offset::ZERO,
+            scale: None,
+        }
+    }
+
+    /// Create a translated transform
+    pub fn translated(offset: Offset) -> Self {
+        Self {
+            offset,
+            scale: None,
+        }
+    }
+
+    /// Create a scaled transform
+    pub fn scaled(sx: f32, sy: f32, anchor: Offset) -> Self {
+        Self {
+            offset: Offset::ZERO,
+            scale: Some((sx, sy, anchor)),
+        }
+    }
+}
+
+// ============================================================================
 // Transition State
 // ============================================================================
 
@@ -81,7 +123,9 @@ impl ActiveTransition {
         is_reverse: bool,
     ) -> Self {
         let duration = transition_type.duration();
-        let curve = Self::default_curve_for_transition(&transition_type);
+        // Use curve from TransitionType if specified, otherwise use default
+        let curve = transition_type.curve()
+            .unwrap_or_else(|| Self::default_curve_for_transition(&transition_type));
         
         let tween = Tween::new(0.0_f32, 1.0)
             .with_duration(duration)
@@ -121,8 +165,14 @@ impl ActiveTransition {
         self
     }
     
-    /// Get the current progress (0.0 to 1.0)
+    /// Get the current progress (0.0 to 1.0), with curve applied
     pub fn progress(&self) -> f32 {
+        // Use value() instead of progress() to get the curve-transformed value
+        self.progress_controller.value()
+    }
+    
+    /// Get the raw linear progress (0.0 to 1.0), without curve applied
+    pub fn raw_progress(&self) -> f32 {
         self.progress_controller.progress()
     }
     
@@ -200,11 +250,8 @@ impl ActiveTransition {
     
     /// Paint a slide transition
     fn paint_slide(&self, painter: &mut dyn Painter, progress: f32, direction: &SlideDirection) {
-        let direction = if self.is_reverse {
-            direction.reverse()
-        } else {
-            *direction
-        };
+        // Use direction as-is: exit_transition() already defines the correct direction for pop
+        let direction = *direction;
         
         // Calculate offsets
         let exit_end = direction.exit_end();
@@ -281,11 +328,8 @@ impl ActiveTransition {
         progress: f32,
         direction: &SlideDirection,
     ) {
-        let direction = if self.is_reverse {
-            direction.reverse()
-        } else {
-            *direction
-        };
+        // Use direction as-is: exit_transition() already defines the correct direction for pop
+        let direction = *direction;
         
         let exit_end = direction.exit_end();
         let enter_start = direction.enter_start();
@@ -320,6 +364,111 @@ impl ActiveTransition {
     /// Consume the transition and return the to snapshot
     pub fn into_to_snapshot(self) -> PageSnapshot {
         self.to_snapshot
+    }
+
+    /// Check if this is a reverse (pop) transition
+    pub fn is_reverse(&self) -> bool {
+        self.is_reverse
+    }
+
+    /// Get the canvas/screen size
+    pub fn size(&self) -> Size {
+        self.size
+    }
+
+    /// Get transform parameters for live painting both pages.
+    ///
+    /// Returns `(from_transform, to_transform)` to apply to the exiting and
+    /// entering pages respectively. The caller should apply
+    /// `clip_rect(screen_rect)` before painting each page.
+    pub fn get_live_transforms(&self) -> (PageTransform, PageTransform) {
+        let progress = self.progress();
+
+        match &self.transition_type {
+            TransitionType::None => {
+                (PageTransform::identity(), PageTransform::identity())
+            }
+
+            TransitionType::Slide { direction, .. } => {
+                // Use direction as-is: exit_transition() already defines the correct direction for pop
+                let exit_end = direction.exit_end();
+                let enter_start = direction.enter_start();
+
+                let from_offset = Offset::new(
+                    exit_end.x * self.size.width * progress,
+                    exit_end.y * self.size.height * progress,
+                );
+                let to_offset = Offset::new(
+                    enter_start.x * self.size.width * (1.0 - progress),
+                    enter_start.y * self.size.height * (1.0 - progress),
+                );
+
+                (
+                    PageTransform::translated(from_offset),
+                    PageTransform::translated(to_offset),
+                )
+            }
+
+            TransitionType::Fade { .. } => {
+                // Without save_layer_alpha, approximate fade with a very subtle slide
+                let slide_amount = 0.05;
+                let from_offset =
+                    Offset::new(-self.size.width * slide_amount * progress, 0.0);
+                let to_offset =
+                    Offset::new(self.size.width * slide_amount * (1.0 - progress), 0.0);
+                (
+                    PageTransform::translated(from_offset),
+                    PageTransform::translated(to_offset),
+                )
+            }
+
+            TransitionType::Scale {
+                anchor,
+                start_scale,
+                end_scale,
+                ..
+            } => {
+                let anchor_offset = anchor.to_offset(self.size);
+                let from_scale = 1.0 + (end_scale - 1.0) * progress;
+                let to_scale = start_scale + (1.0 - start_scale) * progress;
+                (
+                    PageTransform::scaled(from_scale, from_scale, anchor_offset),
+                    PageTransform::scaled(to_scale, to_scale, anchor_offset),
+                )
+            }
+
+            TransitionType::SlideAndFade { direction, .. } => {
+                // Use direction as-is: exit_transition() already defines the correct direction for pop
+                let exit_end = direction.exit_end();
+                let enter_start = direction.enter_start();
+
+                let from_offset = Offset::new(
+                    exit_end.x * self.size.width * progress * 0.3,
+                    exit_end.y * self.size.height * progress * 0.3,
+                );
+                let to_offset = Offset::new(
+                    enter_start.x * self.size.width * (1.0 - progress) * 0.3,
+                    enter_start.y * self.size.height * (1.0 - progress) * 0.3,
+                );
+
+                (
+                    PageTransform::translated(from_offset),
+                    PageTransform::translated(to_offset),
+                )
+            }
+
+            TransitionType::Custom { .. } => {
+                // Fallback: slide left
+                let from_offset =
+                    Offset::new(-self.size.width * progress, 0.0);
+                let to_offset =
+                    Offset::new(self.size.width * (1.0 - progress), 0.0);
+                (
+                    PageTransform::translated(from_offset),
+                    PageTransform::translated(to_offset),
+                )
+            }
+        }
     }
 }
 
