@@ -194,8 +194,6 @@ dependencies = [
  "hoshimi_shared",
  "hoshimi_ui",
  "sdl3",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
