@@ -138,6 +138,39 @@ pub trait RenderObject: Debug + Any {
     }
     
     // ========================================================================
+    // Dynamic/Static Classification (for Snapshots)
+    // ========================================================================
+    
+    /// Check if this render object is considered "dynamic"
+    /// 
+    /// Dynamic objects are those that:
+    /// - Have running animations
+    /// - Are interactive (gesture detectors)
+    /// - Have real-time content (video, live data)
+    /// 
+    /// During page transitions, dynamic objects are kept alive and continue
+    /// to receive tick updates, while static objects are rendered to a texture.
+    /// 
+    /// Default implementation checks if any animation is running.
+    fn is_dynamic(&self) -> bool {
+        // By default, consider dynamic if any child is animating
+        for child in self.children() {
+            if child.is_dynamic() {
+                return true;
+            }
+        }
+        false
+    }
+    
+    /// Check if this render object can be cached as a texture layer
+    /// 
+    /// Some objects (like video players) may not support being cached.
+    /// Override and return false to prevent texture caching.
+    fn supports_layer_cache(&self) -> bool {
+        true
+    }
+    
+    // ========================================================================
     // Children
     // ========================================================================
     

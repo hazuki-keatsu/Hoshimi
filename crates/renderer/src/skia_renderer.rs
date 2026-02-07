@@ -316,9 +316,12 @@ impl SkiaRenderer {
 
         let (text_width, _) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
+        // Text height = descent - ascent (ascent is negative)
+        let text_height = metrics.1.descent - metrics.1.ascent;
 
         let x = rect.x + (rect.width - text_width) / 2.0;
-        let y = rect.y + (rect.height - metrics.0) / 2.0 - metrics.1.ascent;
+        // Calculate baseline position for vertical centering
+        let y = rect.y + (rect.height - text_height) / 2.0 - metrics.1.ascent;
 
         self.canvas().draw_str(text, (x, y), &font, &paint);
         Ok(())
@@ -327,8 +330,11 @@ impl SkiaRenderer {
     /// Measure text dimensions
     pub fn measure_text(&self, text: &str, font_size: f32) -> Size {
         let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
-        let (width, bounds) = font.measure_str(text, None::<&Paint>);
-        Size::new(width, bounds.height())
+        let (width, _) = font.measure_str(text, None::<&Paint>);
+        let metrics = font.metrics();
+        // Use descent - ascent for consistent height with draw_text_centered
+        let height = metrics.1.descent - metrics.1.ascent;
+        Size::new(width, height)
     }
 
     /// Draw text with a font by cache key (for use with load_font_from_data)
@@ -369,9 +375,12 @@ impl SkiaRenderer {
 
         let (text_width, _) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
+        // Text height = descent - ascent (ascent is negative)
+        let text_height = metrics.1.descent - metrics.1.ascent;
 
         let x = rect.x + (rect.width - text_width) / 2.0;
-        let y = rect.y + (rect.height - metrics.0) / 2.0 - metrics.1.ascent;
+        // Calculate baseline position for vertical centering
+        let y = rect.y + (rect.height - text_height) / 2.0 - metrics.1.ascent;
 
         self.canvas().draw_str(text, (x, y), &font, &paint);
         Ok(())
@@ -382,8 +391,11 @@ impl SkiaRenderer {
         let typeface = self.font_cache.get(font_key)
             .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?;
         let font = Font::from_typeface(typeface, font_size);
-        let (width, bounds) = font.measure_str(text, None::<&Paint>);
-        Ok(Size::new(width, bounds.height()))
+        let (width, _) = font.measure_str(text, None::<&Paint>);
+        let metrics = font.metrics();
+        // Use descent - ascent for consistent height with draw_text_centered
+        let height = metrics.1.descent - metrics.1.ascent;
+        Ok(Size::new(width, height))
     }
 
     // ==================== Image Drawing ====================

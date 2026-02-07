@@ -219,6 +219,60 @@ pub trait Painter {
     
     /// Get the canvas size
     fn canvas_size(&self) -> Size;
+    
+    // ========================================================================
+    // Offscreen Rendering (Optional)
+    // ========================================================================
+    
+    /// Check if offscreen rendering is supported
+    /// 
+    /// Default implementation returns false. Override to enable snapshot support.
+    fn supports_offscreen(&self) -> bool {
+        false
+    }
+    
+    /// Create an offscreen rendering surface
+    /// 
+    /// Returns an opaque handle that can be used with `begin_offscreen()`.
+    /// Default implementation returns 0 (no surface).
+    fn create_offscreen_surface(&mut self, _size: Size) -> u64 {
+        0
+    }
+    
+    /// Begin rendering to an offscreen surface
+    /// 
+    /// All subsequent draw calls will render to this surface until
+    /// `end_offscreen()` is called.
+    fn begin_offscreen(&mut self, _surface_id: u64) {
+        // Default: no-op
+    }
+    
+    /// End offscreen rendering and return a texture handle
+    /// 
+    /// Returns an opaque handle to the rendered texture (0 if failed).
+    fn end_offscreen(&mut self) -> u64 {
+        0
+    }
+    
+    /// Draw an offscreen texture to a destination rectangle
+    /// 
+    /// # Arguments
+    /// - `texture_id`: Handle returned from `end_offscreen()`
+    /// - `dest_rect`: Destination rectangle to draw to
+    /// - `alpha`: Opacity (0.0 to 1.0)
+    fn draw_offscreen_texture(&mut self, _texture_id: u64, _dest_rect: Rect, _alpha: f32) {
+        // Default: no-op
+    }
+    
+    /// Release an offscreen surface
+    fn release_offscreen_surface(&mut self, _surface_id: u64) {
+        // Default: no-op
+    }
+    
+    /// Release an offscreen texture
+    fn release_offscreen_texture(&mut self, _texture_id: u64) {
+        // Default: no-op
+    }
 }
 
 /// Text measurement utility trait

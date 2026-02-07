@@ -68,6 +68,7 @@ pub mod painter;
 pub mod render;
 pub mod tree;
 pub mod widget;
+pub mod router;
 
 // Re-export commonly used items
 pub use animation::{AnimationController, AnimationStatus, Curve, Interpolate, RepeatMode, Tween};
@@ -78,6 +79,7 @@ pub use painter::{Painter, TextMeasurer};
 pub use render::{RenderObject, RenderObjectState};
 pub use tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
 pub use widget::Widget;
+pub use router::{Router, Page, PageParams, TransitionType, NavigationResult};
 
 #[doc(hidden)]
 /// Prelude module for convenient imports
@@ -103,6 +105,12 @@ pub mod prelude {
         RepeatMode, Tween, TweenSequence,
     };
 
+    // Router
+    pub use crate::router::{
+        Router, Page, PageParams, PageState, TransitionType, NavigationResult,
+        NavigationOptions, SimplePage, SlideDirection, ScaleAnchor,
+    };
+
     // Basic widgets
     pub use crate::widget::basic::{
         Align, Center, Column, Container, Expanded, Flexible, FlexFit,
@@ -113,7 +121,7 @@ pub mod prelude {
     // Animated widgets
     pub use crate::widget::animated::{
         AnimatedOpacity, AnimatedPosition, AnimatedScale,
-        FadeTransition, SlideDirection, SlideTransition,
+        FadeTransition, SlideDirection as AnimSlideDirection, SlideTransition,
     };
 
     // Visual novel widgets

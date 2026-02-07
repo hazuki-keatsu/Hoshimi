@@ -301,6 +301,10 @@ pub enum GestureKind {
     DoubleTap,
     /// Long press
     LongPress,
+    /// Press down (mouse/touch down)
+    Press,
+    /// Release (mouse/touch up)
+    Release,
     /// Pan gesture started
     PanStart,
     /// Pan gesture update (with delta)
