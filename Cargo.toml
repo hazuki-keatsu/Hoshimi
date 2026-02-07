@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "bins/cli",
-    "bins/driver",
+    "apps/cli",
+    "apps/driver",
     "crates/renderer",
     "crates/shared",
     "crates/ui",
