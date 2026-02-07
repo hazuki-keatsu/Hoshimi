@@ -159,6 +159,22 @@ impl RenderObject for CenterRenderObject {
         size
     }
     
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_min_intrinsic_width(height)
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_max_intrinsic_width(height)
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_min_intrinsic_height(width)
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_max_intrinsic_height(width)
+    }
+    
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);

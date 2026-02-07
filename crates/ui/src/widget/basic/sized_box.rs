@@ -211,6 +211,51 @@ impl RenderObject for SizedBoxRenderObject {
         size
     }
     
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        if let Some(width) = self.width {
+            return width;
+        }
+        if let Some(child) = &self.child {
+            return child.get_min_intrinsic_width(height);
+        }
+        0.0
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        if let Some(width) = self.width {
+            return width;
+        }
+        if let Some(child) = &self.child {
+            return child.get_max_intrinsic_width(height);
+        }
+        0.0
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        if let Some(height) = self.height {
+            return height;
+        }
+        if let Some(child) = &self.child {
+            return child.get_min_intrinsic_height(width);
+        }
+        0.0
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        if let Some(height) = self.height {
+            return height;
+        }
+        if let Some(child) = &self.child {
+            return child.get_max_intrinsic_height(width);
+        }
+        0.0
+    }
+    
+    fn is_relayout_boundary(&self) -> bool {
+        // SizedBox is a relayout boundary when both dimensions are fixed
+        self.width.is_some() && self.height.is_some()
+    }
+    
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);

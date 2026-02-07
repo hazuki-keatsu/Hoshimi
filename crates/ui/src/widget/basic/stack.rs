@@ -223,6 +223,42 @@ impl RenderObject for StackRenderObject {
         size
     }
     
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        // Stack: max of children's min widths
+        let mut max_width: f32 = 0.0;
+        for child in &self.children {
+            max_width = max_width.max(child.get_min_intrinsic_width(height));
+        }
+        max_width
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        // Stack: max of children's max widths
+        let mut max_width: f32 = 0.0;
+        for child in &self.children {
+            max_width = max_width.max(child.get_max_intrinsic_width(height));
+        }
+        max_width
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        // Stack: max of children's min heights
+        let mut max_height: f32 = 0.0;
+        for child in &self.children {
+            max_height = max_height.max(child.get_min_intrinsic_height(width));
+        }
+        max_height
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        // Stack: max of children's max heights
+        let mut max_height: f32 = 0.0;
+        for child in &self.children {
+            max_height = max_height.max(child.get_max_intrinsic_height(width));
+        }
+        max_height
+    }
+    
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);

@@ -202,29 +202,94 @@ impl RenderObject for ColumnRenderObject {
             return self.state.size;
         }
         
-        // First pass: layout children with unbounded height
-        let child_constraints = Constraints::new(
+        // ====================================================================
+        // Phase 1: Layout non-flex children and collect flex children info
+        // ====================================================================
+        
+        // Constraints for non-flex children (unbounded on main axis)
+        let non_flex_constraints = Constraints::new(
             constraints.min_width,
             constraints.max_width,
             0.0,
             f32::INFINITY,
         );
         
-        let mut child_sizes: Vec<Size> = Vec::with_capacity(self.children.len());
-        let mut total_height = 0.0;
+        // Track child sizes, flex info, and totals
+        let mut child_sizes: Vec<Option<Size>> = vec![None; self.children.len()];
+        let mut flex_children: Vec<(usize, u32, bool)> = Vec::new(); // (index, flex, is_tight)
+        let mut total_flex: u32 = 0;
+        let mut allocated_height = 0.0;
         let mut max_width: f32 = 0.0;
         
-        for child in &mut self.children {
+        for (i, child) in self.children.iter_mut().enumerate() {
+            if let Some((flex, is_tight)) = child.get_flex_data() {
+                // This is a flex child, defer layout
+                flex_children.push((i, flex, is_tight));
+                total_flex += flex;
+            } else {
+                // Non-flex child: layout immediately
+                let size = child.layout(non_flex_constraints);
+                child_sizes[i] = Some(size);
+                allocated_height += size.height;
+                max_width = max_width.max(size.width);
+            }
+        }
+        
+        // Add spacing to allocated height
+        if !self.children.is_empty() {
+            allocated_height += self.spacing * (self.children.len() - 1) as f32;
+        }
+        
+        // ====================================================================
+        // Phase 2: Distribute remaining space to flex children
+        // ====================================================================
+        
+        let available_height = constraints.max_height;
+        let remaining_height = (available_height - allocated_height).max(0.0);
+        let space_per_flex = if total_flex > 0 {
+            remaining_height / total_flex as f32
+        } else {
+            0.0
+        };
+        
+        for (index, flex, is_tight) in &flex_children {
+            let child = &mut self.children[*index];
+            let child_main_size = space_per_flex * (*flex as f32);
+            
+            // Create constraints based on fit type
+            let child_constraints = if *is_tight {
+                // Tight: child must fill allocated space
+                Constraints::new(
+                    constraints.min_width,
+                    constraints.max_width,
+                    child_main_size,
+                    child_main_size,
+                )
+            } else {
+                // Loose: child can be smaller than allocated space
+                Constraints::new(
+                    constraints.min_width,
+                    constraints.max_width,
+                    0.0,
+                    child_main_size,
+                )
+            };
+            
             let size = child.layout(child_constraints);
-            child_sizes.push(size);
-            total_height += size.height;
+            child_sizes[*index] = Some(size);
             max_width = max_width.max(size.width);
         }
         
-        // Add spacing
-        if !self.children.is_empty() {
-            total_height += self.spacing * (self.children.len() - 1) as f32;
-        }
+        // ====================================================================
+        // Phase 3: Calculate final size and position children
+        // ====================================================================
+        
+        // Calculate total height from all children
+        let total_children_height: f32 = child_sizes.iter()
+            .filter_map(|s| s.as_ref())
+            .map(|s| s.height)
+            .sum();
+        let total_height = total_children_height + self.spacing * (self.children.len() - 1).max(0) as f32;
         
         // Determine final size
         let final_width = match self.cross_axis_alignment {
@@ -239,7 +304,7 @@ impl RenderObject for ColumnRenderObject {
         
         let size = constraints.constrain(Size::new(final_width, final_height));
         
-        // Second pass: position children
+        // Calculate spacing for main axis alignment
         let extra_space = (size.height - total_height).max(0.0);
         let (start_offset, between_space) = match self.main_axis_alignment {
             MainAxisAlignment::Start => (0.0, 0.0),
@@ -262,9 +327,10 @@ impl RenderObject for ColumnRenderObject {
             }
         };
         
+        // Position children
         let mut y = start_offset;
         for (i, child) in self.children.iter_mut().enumerate() {
-            let child_size = child_sizes[i];
+            let child_size = child_sizes[i].unwrap_or(Size::zero());
             
             let x = match self.cross_axis_alignment {
                 CrossAxisAlignment::Start => 0.0,
@@ -281,6 +347,48 @@ impl RenderObject for ColumnRenderObject {
         self.state.needs_layout = false;
         
         size
+    }
+    
+    fn get_min_intrinsic_width(&self, _height: f32) -> f32 {
+        // Column: min width is max of children's min widths
+        let mut max_width: f32 = 0.0;
+        for child in &self.children {
+            max_width = max_width.max(child.get_min_intrinsic_width(f32::INFINITY));
+        }
+        max_width
+    }
+    
+    fn get_max_intrinsic_width(&self, _height: f32) -> f32 {
+        // Column: max width is max of children's max widths
+        let mut max_width: f32 = 0.0;
+        for child in &self.children {
+            max_width = max_width.max(child.get_max_intrinsic_width(f32::INFINITY));
+        }
+        max_width
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        // Column: min height is sum of children's min heights + spacing
+        let mut total_height: f32 = 0.0;
+        for child in &self.children {
+            total_height += child.get_min_intrinsic_height(width);
+        }
+        if !self.children.is_empty() {
+            total_height += self.spacing * (self.children.len() - 1) as f32;
+        }
+        total_height
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        // Column: max height is sum of children's max heights + spacing
+        let mut total_height: f32 = 0.0;
+        for child in &self.children {
+            total_height += child.get_max_intrinsic_height(width);
+        }
+        if !self.children.is_empty() {
+            total_height += self.spacing * (self.children.len() - 1) as f32;
+        }
+        total_height
     }
     
     fn paint(&self, painter: &mut dyn Painter) {

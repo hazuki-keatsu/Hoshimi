@@ -156,7 +156,7 @@ impl Page for CounterPage {
                                                     box_shadow: None,
                                                 })
                                                 .with_alignment(Alignment::center())
-                                                .with_size(128.0, 128.0),
+                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
                                             Self::make_shadow(self.btn_pressed.0),
                                         )
                                         .with_duration(0.15),
@@ -187,7 +187,7 @@ impl Page for CounterPage {
                                                     box_shadow: None,
                                                 })
                                                 .with_alignment(Alignment::center())
-                                                .with_size(256.0, 128.0),
+                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
                                             Self::make_shadow(self.btn_pressed.1),
                                         )
                                         .with_duration(0.15),
@@ -218,7 +218,7 @@ impl Page for CounterPage {
                                                     box_shadow: None,
                                                 })
                                                 .with_alignment(Alignment::center())
-                                                .with_size(128.0, 128.0),
+                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
                                             Self::make_shadow(self.btn_pressed.2),
                                         )
                                         .with_duration(0.15),
@@ -248,7 +248,7 @@ impl Page for CounterPage {
                                             border_radius: Some(BorderRadius::all(16.0)),
                                             box_shadow: None,
                                         })
-                                        .with_size(512.0, 128.0)
+                                        .with_padding(EdgeInsets::symmetric(32.0, 64.0))
                                         .with_alignment(Alignment::center()),
                                     Self::make_shadow(self.btn_pressed.3),
                                 )

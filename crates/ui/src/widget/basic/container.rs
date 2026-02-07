@@ -301,6 +301,62 @@ impl RenderObject for ContainerRenderObject {
         total_size
     }
     
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        if let Some(width) = self.explicit_width {
+            return width + self.margin.left + self.margin.right;
+        }
+        let horizontal_insets = self.margin.left + self.margin.right 
+            + self.padding.left + self.padding.right;
+        let child_height = (height - self.margin.top - self.margin.bottom 
+            - self.padding.top - self.padding.bottom).max(0.0);
+        let child_width = self.child.as_ref()
+            .map(|c| c.get_min_intrinsic_width(child_height))
+            .unwrap_or(0.0);
+        child_width + horizontal_insets
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        if let Some(width) = self.explicit_width {
+            return width + self.margin.left + self.margin.right;
+        }
+        let horizontal_insets = self.margin.left + self.margin.right 
+            + self.padding.left + self.padding.right;
+        let child_height = (height - self.margin.top - self.margin.bottom 
+            - self.padding.top - self.padding.bottom).max(0.0);
+        let child_width = self.child.as_ref()
+            .map(|c| c.get_max_intrinsic_width(child_height))
+            .unwrap_or(0.0);
+        child_width + horizontal_insets
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        if let Some(height) = self.explicit_height {
+            return height + self.margin.top + self.margin.bottom;
+        }
+        let vertical_insets = self.margin.top + self.margin.bottom 
+            + self.padding.top + self.padding.bottom;
+        let child_width = (width - self.margin.left - self.margin.right 
+            - self.padding.left - self.padding.right).max(0.0);
+        let child_height = self.child.as_ref()
+            .map(|c| c.get_min_intrinsic_height(child_width))
+            .unwrap_or(0.0);
+        child_height + vertical_insets
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        if let Some(height) = self.explicit_height {
+            return height + self.margin.top + self.margin.bottom;
+        }
+        let vertical_insets = self.margin.top + self.margin.bottom 
+            + self.padding.top + self.padding.bottom;
+        let child_width = (width - self.margin.left - self.margin.right 
+            - self.padding.left - self.padding.right).max(0.0);
+        let child_height = self.child.as_ref()
+            .map(|c| c.get_max_intrinsic_height(child_width))
+            .unwrap_or(0.0);
+        child_height + vertical_insets
+    }
+    
     fn paint(&self, painter: &mut dyn Painter) {
         let rect = self.state.get_rect();
         

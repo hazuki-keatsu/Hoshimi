@@ -114,6 +114,11 @@ impl ExpandedRenderObject {
 impl RenderObject for ExpandedRenderObject {
     impl_render_object_common!(state);
     
+    fn get_flex_data(&self) -> Option<(u32, bool)> {
+        // Expanded always uses tight fit (must fill allocated space)
+        Some((self.flex, true))
+    }
+    
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Expanded fills all available space
         let size = Size::new(constraints.max_width, constraints.max_height);
@@ -127,6 +132,22 @@ impl RenderObject for ExpandedRenderObject {
         self.state.needs_layout = false;
         
         size
+    }
+    
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_min_intrinsic_width(height)
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_max_intrinsic_width(height)
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_min_intrinsic_height(width)
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_max_intrinsic_height(width)
     }
     
     fn paint(&self, painter: &mut dyn Painter) {
@@ -281,6 +302,11 @@ impl FlexibleRenderObject {
 impl RenderObject for FlexibleRenderObject {
     impl_render_object_common!(state);
     
+    fn get_flex_data(&self) -> Option<(u32, bool)> {
+        // Return flex factor and whether it's tight fit
+        Some((self.flex, self.fit == FlexFit::Tight))
+    }
+    
     fn layout(&mut self, constraints: Constraints) -> Size {
         let child_constraints = match self.fit {
             FlexFit::Tight => Constraints::tight(Size::new(
@@ -302,6 +328,22 @@ impl RenderObject for FlexibleRenderObject {
         self.state.needs_layout = false;
         
         self.state.size
+    }
+    
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_min_intrinsic_width(height)
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        self.child.get_max_intrinsic_width(height)
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_min_intrinsic_height(width)
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        self.child.get_max_intrinsic_height(width)
     }
     
     fn paint(&self, painter: &mut dyn Painter) {

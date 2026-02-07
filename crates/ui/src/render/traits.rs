@@ -216,6 +216,89 @@ pub trait RenderObject: Debug + Any {
     fn mark_needs_paint(&mut self);
     
     // ========================================================================
+    // Flex Layout Support
+    // ========================================================================
+    
+    /// Get flex data for this render object (used by Row/Column)
+    /// 
+    /// Returns `Some((flex, is_tight))` if this is a flex child:
+    /// - `flex`: The flex factor for space distribution
+    /// - `is_tight`: If true, child must fill allocated space (FlexFit::Tight)
+    ///               If false, child can be smaller (FlexFit::Loose)
+    /// 
+    /// Returns `None` for non-flex children (fixed size).
+    fn get_flex_data(&self) -> Option<(u32, bool)> {
+        None
+    }
+    
+    // ========================================================================
+    // Intrinsic Size
+    // ========================================================================
+    
+    /// Get the minimum intrinsic width given a height constraint
+    /// 
+    /// This is the smallest width that this render object can be without
+    /// failing to correctly paint its contents within itself.
+    fn get_min_intrinsic_width(&self, _height: f32) -> f32 {
+        0.0
+    }
+    
+    /// Get the maximum intrinsic width given a height constraint  
+    /// 
+    /// This is the smallest width beyond which increasing the width
+    /// never decreases the preferred height.
+    fn get_max_intrinsic_width(&self, _height: f32) -> f32 {
+        0.0
+    }
+    
+    /// Get the minimum intrinsic height given a width constraint
+    /// 
+    /// This is the smallest height that this render object can be without
+    /// failing to correctly paint its contents within itself.
+    fn get_min_intrinsic_height(&self, _width: f32) -> f32 {
+        0.0
+    }
+    
+    /// Get the maximum intrinsic height given a width constraint
+    /// 
+    /// This is the smallest height beyond which increasing the height
+    /// never decreases the preferred width.
+    fn get_max_intrinsic_height(&self, _width: f32) -> f32 {
+        0.0
+    }
+    
+    // ========================================================================
+    // Layout Optimization
+    // ========================================================================
+    
+    /// Check if this render object is a relayout boundary
+    /// 
+    /// A relayout boundary is a render object that:
+    /// - Has tight constraints (exact width and height)
+    /// - Or sizes itself based only on its constraints (not child sizes)
+    /// 
+    /// When a child of a relayout boundary changes, layout only needs to propagate
+    /// up to the boundary, not all the way to the root.
+    /// 
+    /// Most components return `false` (layout propagates through them).
+    /// Components like `SizedBox` with fixed dimensions can return `true`.
+    fn is_relayout_boundary(&self) -> bool {
+        false
+    }
+    
+    /// Perform layout only if needed, skipping if already laid out
+    /// 
+    /// During incremental layout, this allows skipping subtrees that
+    /// don't need re-layout. The default implementation always calls `layout()`.
+    fn layout_if_needed(&mut self, constraints: Constraints) -> Size {
+        if self.needs_layout() {
+            self.layout(constraints)
+        } else {
+            self.get_size()
+        }
+    }
+    
+    // ========================================================================
     // Type Operations
     // ========================================================================
     

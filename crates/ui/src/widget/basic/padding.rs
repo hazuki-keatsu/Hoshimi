@@ -152,6 +152,30 @@ impl RenderObject for PaddingRenderObject {
         size
     }
     
+    fn get_min_intrinsic_width(&self, height: f32) -> f32 {
+        let horizontal_padding = self.padding.left + self.padding.right;
+        let child_height = (height - self.padding.top - self.padding.bottom).max(0.0);
+        self.child.get_min_intrinsic_width(child_height) + horizontal_padding
+    }
+    
+    fn get_max_intrinsic_width(&self, height: f32) -> f32 {
+        let horizontal_padding = self.padding.left + self.padding.right;
+        let child_height = (height - self.padding.top - self.padding.bottom).max(0.0);
+        self.child.get_max_intrinsic_width(child_height) + horizontal_padding
+    }
+    
+    fn get_min_intrinsic_height(&self, width: f32) -> f32 {
+        let vertical_padding = self.padding.top + self.padding.bottom;
+        let child_width = (width - self.padding.left - self.padding.right).max(0.0);
+        self.child.get_min_intrinsic_height(child_width) + vertical_padding
+    }
+    
+    fn get_max_intrinsic_height(&self, width: f32) -> f32 {
+        let vertical_padding = self.padding.top + self.padding.bottom;
+        let child_width = (width - self.padding.left - self.padding.right).max(0.0);
+        self.child.get_max_intrinsic_height(child_width) + vertical_padding
+    }
+    
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
