@@ -6,7 +6,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::painter::Painter;
@@ -362,19 +362,19 @@ impl RenderObjectState {
 #[macro_export]
 macro_rules! impl_render_object_common {
     ($state_field:ident) => {
-        fn get_rect(&self) -> hoshimi_shared::Rect {
+        fn get_rect(&self) -> hoshimi_types::Rect {
             self.$state_field.get_rect()
         }
         
-        fn set_offset(&mut self, offset: hoshimi_shared::Offset) {
+        fn set_offset(&mut self, offset: hoshimi_types::Offset) {
             self.$state_field.offset = offset;
         }
         
-        fn get_offset(&self) -> hoshimi_shared::Offset {
+        fn get_offset(&self) -> hoshimi_types::Offset {
             self.$state_field.offset
         }
         
-        fn get_size(&self) -> hoshimi_shared::Size {
+        fn get_size(&self) -> hoshimi_types::Size {
             self.$state_field.size
         }
         
@@ -500,9 +500,9 @@ macro_rules! impl_animated_tick {
 #[macro_export]
 macro_rules! impl_single_child_layout {
     ($state_field:ident, $child_field:ident) => {
-        fn layout(&mut self, constraints: hoshimi_shared::Constraints) -> hoshimi_shared::Size {
+        fn layout(&mut self, constraints: hoshimi_types::Constraints) -> hoshimi_types::Size {
             let child_size = self.$child_field.layout(constraints);
-            self.$child_field.set_offset(hoshimi_shared::Offset::ZERO);
+            self.$child_field.set_offset(hoshimi_types::Offset::ZERO);
             self.$state_field.size = child_size;
             child_size
         }

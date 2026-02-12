@@ -3,7 +3,7 @@
 //! This module converts SDL3 events into Hoshimi UI InputEvents.
 //! Gesture detection (Tap, LongPress) is handled by the UI crate's InputEventQueue.
 
-use hoshimi_shared::Offset;
+use hoshimi_types::Offset;
 use hoshimi_ui::prelude::{InputEvent, KeyCode, KeyModifiers, MouseButton};
 use sdl3::event::Event as SdlEvent;
 use sdl3::keyboard::Keycode as SdlKeycode;

@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use hoshimi_shared::{Constraints, Size};
+use hoshimi_types::{Constraints, Size};
 use tracing::{debug, trace};
 
 use crate::events::{EventResult, InputEvent, UIMessage};
@@ -354,7 +354,7 @@ impl UiTree {
     /// Hit test at position
     pub fn hit_test(&self, x: f32, y: f32) -> bool {
         if let Some(ref root) = self.root {
-            root.hit_test(hoshimi_shared::Offset::new(x, y)).is_hit()
+            root.hit_test(hoshimi_types::Offset::new(x, y)).is_hit()
         } else {
             false
         }

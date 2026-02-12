@@ -60,7 +60,7 @@
 //! [`Interpolate`] can be animated:
 //!
 //! ```ignore
-//! use hoshimi_shared::{Offset, Color};
+//! use hoshimi_types::{Offset, Color};
 //!
 //! // Float tween
 //! let opacity = Tween::new(0.0_f32, 1.0);

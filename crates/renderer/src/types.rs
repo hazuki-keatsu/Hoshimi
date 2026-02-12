@@ -1,10 +1,10 @@
 //! Renderer-specific types
 //! 
 //! This module provides renderer-specific types that are not shared with UI.
-//! Common types like Color, Offset, Size, Rect are re-exported from hoshimi_shared.
+//! Common types like Color, Offset, Size, Rect are re-exported from hoshimi_types.
 
 // Re-export shared types for convenience
-pub use hoshimi_shared::{
+pub use hoshimi_types::{
     Color, Offset, Size, Rect, BorderRadius, TextAlign,
     // Skia conversion utilities
     rect_to_rrect, rect_to_rrect_uniform,

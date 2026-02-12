@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Offset, Rect, Size};
+use hoshimi_types::{Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};
@@ -260,9 +260,9 @@ impl Animatable for SlideTransitionRenderObject {
 
 impl RenderObject for SlideTransitionRenderObject {
     // Custom layout to start animation after first layout
-    fn layout(&mut self, constraints: hoshimi_shared::Constraints) -> hoshimi_shared::Size {
+    fn layout(&mut self, constraints: hoshimi_types::Constraints) -> hoshimi_types::Size {
         let child_size = self.child.layout(constraints);
-        self.child.set_offset(hoshimi_shared::Offset::ZERO);
+        self.child.set_offset(hoshimi_types::Offset::ZERO);
         self.state.size = child_size;
         
         // Start entrance animation after first layout when size is known

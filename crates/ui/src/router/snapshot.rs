@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Weak;
 
-use hoshimi_shared::{Offset, Rect, Size};
+use hoshimi_types::{Offset, Rect, Size};
 
 use crate::painter::Painter;
 use crate::render::RenderObject;

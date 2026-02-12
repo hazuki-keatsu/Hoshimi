@@ -5,7 +5,7 @@ mod animation_test_page;
 use counter_page::CounterPage;
 use animation_test_page::AnimationTestPage;
 use hoshimi_renderer::{Color, SkiaRenderer};
-use hoshimi_shared::logger::{self, ExpectLog};
+use hoshimi_logger::logger::{self, ExpectLog};
 use hoshimi_ui::painter::SkiaRendererPainter;
 use hoshimi_ui::prelude::*;
 use sdl3;

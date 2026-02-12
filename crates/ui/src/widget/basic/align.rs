@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Alignment, Constraints, Size};
+use hoshimi_types::{Alignment, Constraints, Size};
 
 use crate::key::WidgetKey;
 use crate::painter::Painter;

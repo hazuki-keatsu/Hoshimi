@@ -131,7 +131,7 @@ pub mod prelude {
     };
 
     // Re-export shared types that are commonly used
-    pub use hoshimi_shared::{
+    pub use hoshimi_types::{
         Alignment, BorderRadius, BoxDecoration, BoxShadow, Color, Constraints,
         CrossAxisAlignment, EdgeInsets, ImageFit, MainAxisAlignment, MainAxisSize,
         Offset, Rect, Size, TextOverflow, TextStyle,

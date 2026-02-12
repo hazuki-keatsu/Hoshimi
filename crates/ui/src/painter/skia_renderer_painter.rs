@@ -3,7 +3,7 @@
 //! Implements the Painter trait using the Hoshimi SkiaRenderer.
 
 use hoshimi_renderer::skia_renderer::SkiaRenderer;
-use hoshimi_shared::{
+use hoshimi_types::{
     BorderRadius, Color, EdgeInsets, Offset, Rect, Size, TextStyle,
 };
 

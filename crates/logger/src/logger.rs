@@ -1,6 +1,7 @@
 pub use tracing::{info, error, warn, debug, trace, instrument};
 use tracing_subscriber::{self, EnvFilter};
 
+/// Init the subscriber
 pub fn init() {
     tracing_subscriber::fmt()
         .with_level(true)
@@ -11,7 +12,9 @@ pub fn init() {
         .init();
 }
 
+/// expect_log() trait
 pub trait ExpectLog<T> {
+    /// expect_log() function
     fn expect_log(self, msg: &str) -> T;
 }
 

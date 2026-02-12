@@ -1,15 +1,16 @@
 [package]
 name = "hoshimi_driver"
-version = { workspace = true}
-edition = { workspace = true}
+version = { workspace = true }
+edition = { workspace = true }
 
 [[bin]]
 name = "hoshimi_player"
 path = "src/main.rs"
 
 [dependencies]
-sdl3 = {workspace = true}
+sdl3 = { workspace = true }
 hoshimi_renderer = { path = "../../crates/renderer" }
-hoshimi_shared ={ path = "../../crates/shared" }
+hoshimi_types = { path = "../../crates/types" }
+hoshimi_logger = { path = "../../crates/logger" }
 hoshimi_ui = { path = "../../crates/ui" }
 gl = { workspace = true }

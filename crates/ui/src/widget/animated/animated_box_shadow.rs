@@ -7,7 +7,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{BoxShadow, Color, Offset, Rect};
+use hoshimi_types::{BoxShadow, Color, Offset, Rect};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::HitTestResult;
@@ -25,7 +25,7 @@ use crate::widget::Widget;
 /// 
 /// ```ignore
 /// use hoshimi_ui::widget::AnimatedBoxShadow;
-/// use hoshimi_shared::{BoxShadow, Color, Offset};
+/// use hoshimi_types::{BoxShadow, Color, Offset};
 /// 
 /// let shadow = BoxShadow::new(
 ///     Color::rgba(0, 0, 0, 80),

@@ -3,7 +3,7 @@
 //! Provides animated transitions between pages using the animation module.
 //! Supports various transition types like slide, fade, scale, and custom transitions.
 
-use hoshimi_shared::{Offset, Size};
+use hoshimi_types::{Offset, Size};
 
 use crate::animation::{AnimationController, AnimationStatus, Curve, Tween};
 use crate::painter::Painter;

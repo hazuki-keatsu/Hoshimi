@@ -299,35 +299,44 @@ name = "hoshimi_driver"
 version = "0.1.0"
 dependencies = [
  "gl",
+ "hoshimi_logger",
  "hoshimi_renderer",
- "hoshimi_shared",
+ "hoshimi_types",
  "hoshimi_ui",
  "sdl3",
+]
+
+[[package]]
+name = "hoshimi_logger"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
 name = "hoshimi_renderer"
 version = "0.1.0"
 dependencies = [
- "hoshimi_shared",
+ "hoshimi_logger",
+ "hoshimi_types",
  "skia-safe",
 ]
 
 [[package]]
-name = "hoshimi_shared"
+name = "hoshimi_types"
 version = "0.1.0"
 dependencies = [
  "skia-safe",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
 name = "hoshimi_ui"
 version = "0.1.0"
 dependencies = [
+ "hoshimi_logger",
  "hoshimi_renderer",
- "hoshimi_shared",
+ "hoshimi_types",
  "tracing",
 ]
 

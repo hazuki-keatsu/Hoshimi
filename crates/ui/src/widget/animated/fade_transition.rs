@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Offset};
+use hoshimi_types::{Offset};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};

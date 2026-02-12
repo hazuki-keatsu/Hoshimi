@@ -1,9 +1,10 @@
 [workspace]
 members = [
     "apps/cli",
-    "apps/driver",
+    "apps/driver", 
+    "crates/logger",
     "crates/renderer",
-    "crates/shared",
+    "crates/types",
     "crates/ui",
 ]
 resolver = "2"

@@ -2,7 +2,7 @@
 //!
 //! This module defines input events and UI messages for the Hoshimi UI system.
 
-use hoshimi_shared::{Offset, Rect};
+use hoshimi_types::{Offset, Rect};
 
 // ============================================================================
 // Input Events

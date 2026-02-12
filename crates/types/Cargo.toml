@@ -1,5 +1,5 @@
 [package]
-name = "hoshimi_shared"
+name = "hoshimi_types"
 version = { workspace = true}
 edition = { workspace = true}
 
@@ -8,6 +8,4 @@ default = []
 skia = ["dep:skia-safe"]
 
 [dependencies]
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 skia-safe = { workspace = true, optional = true }

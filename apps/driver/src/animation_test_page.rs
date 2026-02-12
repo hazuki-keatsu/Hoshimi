@@ -7,8 +7,8 @@
 //! - Different visual styles
 //! - Route transition animations
 
-use hoshimi_shared::TextAlign;
-use hoshimi_shared::{Border, BoxShadow, Offset};
+use hoshimi_types::TextAlign;
+use hoshimi_types::{Border, BoxShadow, Offset};
 use hoshimi_ui::impl_page_common;
 use hoshimi_ui::prelude::*;
 use hoshimi_ui::router::TransitionType; // Import for custom transitions
@@ -105,7 +105,7 @@ impl Page for AnimationTestPage {
                                             border_radius: Some(BorderRadius::all(16.0)),
                                             box_shadow: None,
                                         })
-                                        .with_size(512.0, 128.0)
+                                        .with_padding_all(12.0)
                                         .with_alignment(Alignment::center()),
                                     Self::make_shadow(self.btn_pressed),
                                 )

@@ -6,7 +6,7 @@
 use std::time::Instant;
 use std::collections::VecDeque;
 
-use hoshimi_shared::Offset;
+use hoshimi_types::Offset;
 
 use crate::events::InputEvent;
 

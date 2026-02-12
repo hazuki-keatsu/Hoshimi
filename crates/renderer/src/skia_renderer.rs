@@ -32,7 +32,7 @@
 
 use std::collections::HashMap;
 
-use hoshimi_shared::logger;
+use hoshimi_logger::logger;
 use skia_safe::gpu::gl::FramebufferInfo;
 use skia_safe::gpu::{Protected, SurfaceOrigin};
 use skia_safe::paint::Style as PaintStyle;

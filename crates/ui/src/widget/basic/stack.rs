@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Alignment, Constraints, Offset, Rect, Size};
+use hoshimi_types::{Alignment, Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;

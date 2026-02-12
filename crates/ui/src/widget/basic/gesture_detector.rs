@@ -12,7 +12,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, GestureKind, HitTestResult, InputEvent, UIMessage};
 use crate::key::WidgetKey;

@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{
+use hoshimi_types::{
     Alignment, BoxDecoration, Constraints, EdgeInsets, Offset, Size,
 };
 
@@ -121,7 +121,7 @@ impl Container {
     }
     
     /// Set background color
-    pub fn with_color(mut self, color: hoshimi_shared::Color) -> Self {
+    pub fn with_color(mut self, color: hoshimi_types::Color) -> Self {
         self.decoration = Some(
             self.decoration.take().unwrap_or_default().with_color(color)
         );

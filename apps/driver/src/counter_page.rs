@@ -7,8 +7,8 @@
 //! - Modifying state through public methods
 //! - Automatic UI rebuild when state changes
 
-use hoshimi_shared::TextAlign;
-use hoshimi_shared::{Border, BoxShadow, Offset};
+use hoshimi_types::TextAlign;
+use hoshimi_types::{Border, BoxShadow, Offset};
 use hoshimi_ui::impl_page_common;
 use hoshimi_ui::prelude::*;
 use hoshimi_ui::widget::AnimatedBoxShadow;

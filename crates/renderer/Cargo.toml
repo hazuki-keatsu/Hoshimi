@@ -7,5 +7,6 @@ edition = { workspace = true}
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
-hoshimi_shared = { path = "../shared", features = ["skia"] }
+hoshimi_types = { path = "../types", features = ["skia"] }
+hoshimi_logger = { path = "../logger"}
 skia-safe = { workspace = true }

@@ -17,7 +17,7 @@
 //! let value = tween.value_at(0.5); // Returns ~50.0 (depending on curve)
 //! ```
 
-use hoshimi_shared::{BoxShadow, Color, Offset, Size};
+use hoshimi_types::{BoxShadow, Color, Offset, Size};
 
 use super::curve::Curve;
 

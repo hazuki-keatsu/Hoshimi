@@ -3,7 +3,7 @@
 //! The Painter trait provides an abstraction over rendering backends,
 //! allowing the UI system to be decoupled from specific graphics APIs.
 
-use hoshimi_shared::{
+use hoshimi_types::{
     BorderRadius, BoxDecoration, Color, EdgeInsets, Offset, Rect, Size, TextAlign, TextStyle,
 };
 

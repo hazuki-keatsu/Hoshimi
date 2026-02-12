@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{
+use hoshimi_types::{
     Constraints, CrossAxisAlignment, MainAxisAlignment, MainAxisSize, Offset, Size,
 };
 

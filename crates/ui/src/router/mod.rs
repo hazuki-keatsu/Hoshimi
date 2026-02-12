@@ -78,7 +78,7 @@ pub use types::{
 
 use std::collections::HashMap;
 
-use hoshimi_shared::{Constraints, Offset, Rect, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 use tracing::{debug, warn};
 
 use crate::events::{EventResult, InputEvent, UIMessage};

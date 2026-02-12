@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use hoshimi_shared::{Offset, Size};
+use hoshimi_types::{Offset, Size};
 
 use crate::animation::Curve;
 

@@ -4,7 +4,7 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_shared::{Constraints, Size, TextAlign, TextOverflow, TextStyle};
+use hoshimi_types::{Constraints, Size, TextAlign, TextOverflow, TextStyle};
 
 use crate::key::WidgetKey;
 use crate::painter::Painter;
@@ -60,7 +60,7 @@ impl Text {
     }
     
     /// Set the text color
-    pub fn with_color(mut self, color: hoshimi_shared::Color) -> Self {
+    pub fn with_color(mut self, color: hoshimi_types::Color) -> Self {
         self.style.color = color;
         self
     }
