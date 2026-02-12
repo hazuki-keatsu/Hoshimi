@@ -301,7 +301,6 @@ dependencies = [
  "gl",
  "hoshimi_logger",
  "hoshimi_renderer",
- "hoshimi_types",
  "hoshimi_ui",
  "sdl3",
 ]

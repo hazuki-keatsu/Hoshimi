@@ -7,8 +7,7 @@
 //! - Different visual styles
 //! - Route transition animations
 
-use hoshimi_types::TextAlign;
-use hoshimi_types::{Border, BoxShadow, Offset};
+use hoshimi_ui::types::{Border, BoxShadow, Offset, TextAlign};
 use hoshimi_ui::impl_page_common;
 use hoshimi_ui::prelude::*;
 use hoshimi_ui::router::TransitionType; // Import for custom transitions

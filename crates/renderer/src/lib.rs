@@ -25,6 +25,7 @@
 pub mod types;
 pub mod error;
 pub mod skia_renderer;
+pub mod traits;
 
 // Re-exports for convenience
 pub use types::*;

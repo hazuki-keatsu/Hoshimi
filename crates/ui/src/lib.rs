@@ -81,6 +81,9 @@ pub use tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, Reco
 pub use widget::Widget;
 pub use router::{Router, Page, PageParams, TransitionType, NavigationResult};
 
+// Re-export types
+pub use hoshimi_types::*;
+
 #[doc(hidden)]
 /// Prelude module for convenient imports
 pub mod prelude {

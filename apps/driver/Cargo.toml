@@ -10,7 +10,6 @@ path = "src/main.rs"
 [dependencies]
 sdl3 = { workspace = true }
 hoshimi_renderer = { path = "../../crates/renderer" }
-hoshimi_types = { path = "../../crates/types" }
 hoshimi_logger = { path = "../../crates/logger" }
 hoshimi_ui = { path = "../../crates/ui" }
 gl = { workspace = true }
