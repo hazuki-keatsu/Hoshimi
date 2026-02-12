@@ -127,12 +127,6 @@ pub mod prelude {
         FadeTransition, SlideDirection as AnimSlideDirection, SlideTransition,
     };
 
-    // Visual novel widgets
-    pub use crate::widget::novel::{
-        Background, BackgroundTransition, ChoiceLayout, ChoiceMenu, ChoiceOption,
-        DialogBox, DialogStyle, Sprite, SpritePosition, SpriteTransition, TextReveal,
-    };
-
     // Re-export shared types that are commonly used
     pub use hoshimi_types::{
         Alignment, BorderRadius, BoxDecoration, BoxShadow, Color, Constraints,
