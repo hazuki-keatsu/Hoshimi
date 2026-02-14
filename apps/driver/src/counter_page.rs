@@ -1,17 +1,17 @@
 //! Simple Counter Page Example
 //!
-//! Demonstrates basic state management in a Page.
+//! Demonstrates basic state management in a Page with the new Button component.
 //!
 //! This example shows:
 //! - Storing state in a Page struct
-//! - Modifying state through public methods
-//! - Automatic UI rebuild when state changes
+//! - Handling messages directly in the page
+//! - Using ElevatedButton, OutlinedButton, and TextButton
 
 use hoshimi_ui::types::TextAlign;
-use hoshimi_ui::types::{Border, BoxShadow, Offset};
 use hoshimi_ui::impl_page_common;
 use hoshimi_ui::prelude::*;
-use hoshimi_ui::widget::AnimatedBoxShadow;
+use hoshimi_ui::widget::{ElevatedButton, OutlinedButton, TextButton, ButtonStyle};
+use hoshimi_ui::events::{GestureKind, UIMessage};
 use std::cell::Cell;
 
 /// A simple counter page with state management
@@ -23,11 +23,7 @@ pub struct CounterPage {
     /// Page title
     title: String,
 
-    /// Button pressed states: (decrement, reset, increment, navigate)
-    btn_pressed: (bool, bool, bool, bool),
-
     /// Flag indicating if UI needs to be rebuilt
-    /// Using Cell allows modification in &self methods
     needs_rebuild: Cell<bool>,
 }
 
@@ -38,7 +34,6 @@ impl CounterPage {
             count: 0,
             title: "Counter Example".to_string(),
             needs_rebuild: Cell::new(false),
-            btn_pressed: (false, false, false, false),
         }
     }
 
@@ -63,29 +58,6 @@ impl CounterPage {
     /// Get the current count (read-only access)
     pub fn count(&self) -> i32 {
         self.count
-    }
-
-    /// Set button pressed state
-    pub fn set_button_pressed(&mut self, btn_id: &str, pressed: bool) {
-        match btn_id {
-            "btn_decrement" => self.btn_pressed.0 = pressed,
-            "btn_reset" => self.btn_pressed.1 = pressed,
-            "btn_increment" => self.btn_pressed.2 = pressed,
-            "btn_to_animation_test" => self.btn_pressed.3 = pressed,
-            _ => {}
-        }
-        self.needs_rebuild.set(true);
-    }
-
-    /// Create shadow based on pressed state
-    fn make_shadow(pressed: bool) -> BoxShadow {
-        if pressed {
-            // Pressed: shallow shadow (closer to surface)
-            BoxShadow::new(Color::from_rgba8(0, 0, 0, 80), Offset::zero(), 16.0, -1.0)
-        } else {
-            // Not pressed: deeper shadow (elevated)
-            BoxShadow::new(Color::from_rgba8(0, 0, 0, 150), Offset::zero(), 32.0, 0.0)
-        }
     }
 }
 
@@ -125,9 +97,9 @@ impl Page for CounterPage {
                                 .with_style(TextStyle {
                                     font_size: 48.0,
                                     color: if self.count >= 0 {
-                                        Color::from_rgba8(0, 128, 0, 255) // Green for positive
+                                        Color::from_rgba8(0, 128, 0, 255)
                                     } else {
-                                        Color::from_rgba8(255, 0, 0, 255) // Red for negative
+                                        Color::from_rgba8(255, 0, 0, 255)
                                     },
                                     ..Default::default()
                                 }),
@@ -136,127 +108,64 @@ impl Page for CounterPage {
                         .child(
                             Row::new()
                                 .child(
-                                    GestureDetector::new(
-                                        AnimatedBoxShadow::new(
-                                            Container::new()
-                                                .child(
-                                                    Text::new("-")
-                                                        .with_color(Color::white())
-                                                        .with_size(32.0)
-                                                        .with_align(TextAlign::Center),
+                                    ElevatedButton::with_child(Text::new("-").with_size(28.0))
+                                        .on_press("btn_decrement")
+                                        .style(
+                                            ButtonStyle::elevated()
+                                                .background_color(
+                                                    hoshimi_ui::widget::ButtonColorProperty::all(
+                                                        Color::from_hex(0x1565C0)
+                                                    )
                                                 )
-                                                .with_padding(EdgeInsets::all(10.0))
-                                                .with_decoration(BoxDecoration {
-                                                    color: Some(Color::from_hex(0x1565C0)),
-                                                    border: Some(Border::new(
-                                                        Color::from_hex(0x00838F),
-                                                        1.0,
-                                                    )),
-                                                    border_radius: Some(BorderRadius::all(16.0)),
-                                                    box_shadow: None,
-                                                })
-                                                .with_alignment(Alignment::center())
-                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
-                                            Self::make_shadow(self.btn_pressed.0),
+                                                .border_radius(BorderRadius::all(16.0))
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
                                         )
-                                        .with_duration(0.15),
-                                    )
-                                    .on_tap("btn_decrement")
-                                    .on_press("btn_decrement")
-                                    .on_release("btn_decrement"),
                                 )
                                 .child(SizedBox::from_width(20.0))
                                 .child(
-                                    GestureDetector::new(
-                                        AnimatedBoxShadow::new(
-                                            Container::new()
-                                                .child(
-                                                    Text::new("Reset")
-                                                        .with_color(Color::white())
-                                                        .with_size(32.0)
-                                                        .with_align(TextAlign::Center),
+                                    OutlinedButton::with_child(Text::new("Reset").with_size(28.0))
+                                        .on_press("btn_reset")
+                                        .style(
+                                            ButtonStyle::outlined()
+                                                .foreground_color(
+                                                    hoshimi_ui::widget::ButtonColorProperty::all(
+                                                        Color::from_hex(0x2E7D32)
+                                                    )
                                                 )
-                                                .with_padding(EdgeInsets::all(10.0))
-                                                .with_decoration(BoxDecoration {
-                                                    color: Some(Color::from_hex(0x2E7D32)),
-                                                    border: Some(Border::new(
-                                                        Color::from_hex(0x558B2F),
-                                                        1.0,
-                                                    )),
-                                                    border_radius: Some(BorderRadius::all(16.0)),
-                                                    box_shadow: None,
-                                                })
-                                                .with_alignment(Alignment::center())
-                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
-                                            Self::make_shadow(self.btn_pressed.1),
+                                                .border_radius(BorderRadius::all(16.0))
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
                                         )
-                                        .with_duration(0.15),
-                                    )
-                                    .on_tap("btn_reset")
-                                    .on_press("btn_reset")
-                                    .on_release("btn_reset"),
                                 )
                                 .child(SizedBox::from_width(20.0))
                                 .child(
-                                    GestureDetector::new(
-                                        AnimatedBoxShadow::new(
-                                            Container::new()
-                                                .child(
-                                                    Text::new("+")
-                                                        .with_color(Color::white())
-                                                        .with_size(32.0)
-                                                        .with_align(TextAlign::Center),
+                                    ElevatedButton::with_child(Text::new("+").with_size(28.0))
+                                        .on_press("btn_increment")
+                                        .style(
+                                            ButtonStyle::elevated()
+                                                .background_color(
+                                                    hoshimi_ui::widget::ButtonColorProperty::all(
+                                                        Color::from_hex(0xD84315)
+                                                    )
                                                 )
-                                                .with_padding(EdgeInsets::all(10.0))
-                                                .with_decoration(BoxDecoration {
-                                                    color: Some(Color::from_hex(0xD84315)),
-                                                    border: Some(Border::new(
-                                                        Color::from_hex(0xEF6C00),
-                                                        1.0,
-                                                    )),
-                                                    border_radius: Some(BorderRadius::all(16.0)),
-                                                    box_shadow: None,
-                                                })
-                                                .with_alignment(Alignment::center())
-                                                .with_padding(EdgeInsets::symmetric(32.0, 64.0)),
-                                            Self::make_shadow(self.btn_pressed.2),
+                                                .border_radius(BorderRadius::all(16.0))
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
                                         )
-                                        .with_duration(0.15),
-                                    )
-                                    .on_tap("btn_increment")
-                                    .on_press("btn_increment")
-                                    .on_release("btn_increment"),
                                 )
                                 .with_main_axis_alignment(MainAxisAlignment::Center),
                         )
                         .child(SizedBox::from_height(60.0))
                         .child(
-                            GestureDetector::new(
-                                AnimatedBoxShadow::new(
-                                    Container::new()
-                                        .child(
-                                            Text::new("Test Animations")
-                                                .with_color(Color::white())
-                                                .with_size(32.0),
+                            TextButton::with_child(Text::new("Test Animations").with_size(28.0))
+                                .on_press("btn_to_animation_test")
+                                .style(
+                                    ButtonStyle::text()
+                                        .foreground_color(
+                                            hoshimi_ui::widget::ButtonColorProperty::all(
+                                                Color::from_hex(0x6A1B9A)
+                                            )
                                         )
-                                        .with_decoration(BoxDecoration {
-                                            color: Some(Color::from_hex(0x6A1B9A)),
-                                            border: Some(Border::new(
-                                                Color::from_hex(0x8E24AA),
-                                                2.0,
-                                            )),
-                                            border_radius: Some(BorderRadius::all(16.0)),
-                                            box_shadow: None,
-                                        })
-                                        .with_padding(EdgeInsets::symmetric(32.0, 64.0))
-                                        .with_alignment(Alignment::center()),
-                                    Self::make_shadow(self.btn_pressed.3),
+                                        .padding(EdgeInsets::symmetric(32.0, 64.0))
                                 )
-                                .with_duration(0.15),
-                            )
-                            .on_tap("btn_to_animation_test")
-                            .on_press("btn_to_animation_test")
-                            .on_release("btn_to_animation_test"),
                         )
                         .with_main_axis_alignment(MainAxisAlignment::Center)
                         .with_cross_axis_alignment(CrossAxisAlignment::Center),
@@ -270,6 +179,29 @@ impl Page for CounterPage {
 
     fn mark_rebuilt(&mut self) {
         self.needs_rebuild.set(false);
+    }
+
+    fn handle_message(&mut self, message: &UIMessage) -> bool {
+        match message {
+            UIMessage::Gesture { id, kind: GestureKind::Tap } => {
+                match id.as_str() {
+                    "btn_increment" => {
+                        self.increment();
+                        true
+                    }
+                    "btn_decrement" => {
+                        self.decrement();
+                        true
+                    }
+                    "btn_reset" => {
+                        self.reset();
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
     }
 
     impl_page_common!();

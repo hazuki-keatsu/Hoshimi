@@ -7,6 +7,7 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use super::types::{PageParams, TransitionType};
+use crate::events::UIMessage;
 use crate::widget::Widget;
 
 /// The core Page trait for router-managed pages
@@ -144,6 +145,46 @@ pub trait Page: Debug + Any {
     /// Called by the router after successfully rebuilding the UI.
     /// Override this if you're tracking rebuild state manually.
     fn mark_rebuilt(&mut self) {}
+    
+    // ========================================================================
+    // Message Handling
+    // ========================================================================
+    
+    /// Handle UI messages from widgets
+    /// 
+    /// This method is called when widgets emit messages (e.g., button clicks,
+    /// gesture events). Override this to handle messages directly in the page
+    /// without needing external message handlers.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - The UI message to handle
+    /// 
+    /// # Returns
+    /// 
+    /// Return `true` if the message was handled, `false` to let the router
+    /// pass it to an external handler.
+    /// 
+    /// # Example
+    /// 
+    /// ```ignore
+    /// fn handle_message(&mut self, message: &UIMessage) -> bool {
+    ///     match message {
+    ///         UIMessage::Gesture { id, kind: GestureKind::Tap } => {
+    ///             match id.as_str() {
+    ///                 "btn_increment" => self.increment(),
+    ///                 "btn_decrement" => self.decrement(),
+    ///                 _ => return false,
+    ///             }
+    ///             true
+    ///         }
+    ///         _ => false,
+    ///     }
+    /// }
+    /// ```
+    fn handle_message(&mut self, _message: &UIMessage) -> bool {
+        false
+    }
     
     // ========================================================================
     // Transition Preferences

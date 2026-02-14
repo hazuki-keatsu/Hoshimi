@@ -8,6 +8,7 @@ use hoshimi_renderer::{Color, SkiaRenderer};
 use hoshimi_logger::logger::{self, ExpectLog};
 use hoshimi_ui::painter::SkiaRendererPainter;
 use hoshimi_ui::prelude::*;
+use hoshimi_ui::events::{GestureKind, UIMessage};
 use sdl3;
 use std::time::Instant;
 
@@ -93,9 +94,10 @@ fn main() {
         // Process all queued events (triggers gesture detection)
         router.process_events();
         
-        // Handle UI messages from router
-        for message in router.take_messages() {
-            handle_ui_message(&message, &mut router);
+        let unhandled_messages = router.process_messages();
+        
+        for message in unhandled_messages {
+            handle_navigation_message(&message, &mut router);
         }
 
         // Update animations and check for page rebuilds
@@ -138,80 +140,25 @@ fn handle_key_input(router: &mut Router, keycode: sdl3::keyboard::Keycode) {
     }
 }
 
-/// Handle UI messages from the router
-fn handle_ui_message(message: &UIMessage, router: &mut Router) {
+fn handle_navigation_message(message: &UIMessage, router: &mut Router) {
     match message {
         UIMessage::Gesture { id, kind: GestureKind::Tap } => {
-            logger::info!("UI Message: Tap on '{}'", id);
-            
-            // Handle navigation
             match id.as_str() {
                 "btn_to_animation_test" => {
                     router.push(AnimationTestPage::new());
                     logger::info!("Router: Navigated to Animation Test Page");
-                    return;
                 }
                 "btn_back_to_counter" => {
                     router.pop();
                     logger::info!("Router: Navigated back to Counter Page");
-                    return;
                 }
-                _ => {}
-            }
-            
-            // Handle button clicks in CounterPage
-            if let Some(page) = router.current_page_mut() {
-                if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
-                    match id.as_str() {
-                        "btn_increment" => {
-                            counter.increment();
-                            logger::info!("Counter: Incremented to {}", counter.count());
-                        }
-                        "btn_decrement" => {
-                            counter.decrement();
-                            logger::info!("Counter: Decremented to {}", counter.count());
-                        }
-                        "btn_reset" => {
-                            counter.reset();
-                            logger::info!("Counter: Reset to 0");
-                        }
-                        _ => {}
-                    }
+                _ => {
+                    logger::trace!("Unhandled navigation message: {:?}", message);
                 }
             }
-        }
-        UIMessage::Gesture { id, kind: GestureKind::Press } => {
-            logger::trace!("UI Message: Press on '{}'", id);
-            
-            // Handle button press - activate shadow
-            if let Some(page) = router.current_page_mut() {
-                if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
-                    counter.set_button_pressed(id, true);
-                } else if let Some(anim_page) = page.as_any_mut().downcast_mut::<AnimationTestPage>() {
-                    anim_page.set_button_pressed(true);
-                }
-            }
-        }
-        UIMessage::Gesture { id, kind: GestureKind::Release } => {
-            logger::trace!("UI Message: Release on '{}'", id);
-            
-            // Handle button release - deactivate shadow
-            if let Some(page) = router.current_page_mut() {
-                if let Some(counter) = page.as_any_mut().downcast_mut::<CounterPage>() {
-                    counter.set_button_pressed(id, false);
-                } else if let Some(anim_page) = page.as_any_mut().downcast_mut::<AnimationTestPage>() {
-                    anim_page.set_button_pressed(false);
-                }
-            }
-        }
-        UIMessage::ButtonClick { id } => {
-            logger::info!("UI Message: Button clicked - id: {}", id);
-        }
-        UIMessage::Gesture { id, kind } => {
-            logger::info!("UI Message: Gesture {:?} on element '{}'", kind, id);
         }
         _ => {
-            logger::info!("UI Message: {:?}", message);
+            logger::trace!("Unhandled message: {:?}", message);
         }
     }
 }

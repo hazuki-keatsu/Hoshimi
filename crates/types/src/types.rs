@@ -784,7 +784,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font_family: None,
-            font_size: 14.0,
+            font_size: 28.0,
             color: Color::black(),
             font_weight: FontWeight::Normal,
             font_style: FontStyle::Normal,

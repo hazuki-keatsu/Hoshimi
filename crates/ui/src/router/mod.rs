@@ -827,6 +827,34 @@ impl Router {
         messages
     }
     
+    /// Process pending messages through the current page's handler
+    /// 
+    /// This method collects all pending messages and passes them to the current
+    /// page's `handle_message` method. Messages that are not handled by the page
+    /// are returned for external processing.
+    /// 
+    /// # Returns
+    /// 
+    /// A vector of messages that were not handled by the page.
+    pub fn process_messages(&mut self) -> Vec<UIMessage> {
+        let messages = self.take_messages();
+        let mut unhandled = Vec::new();
+        
+        for message in messages {
+            let handled = if let Some(entry) = self.stack.last_mut() {
+                entry.page.handle_message(&message)
+            } else {
+                false
+            };
+            
+            if !handled {
+                unhandled.push(message);
+            }
+        }
+        
+        unhandled
+    }
+    
     // ========================================================================
     // Page Rebuild
     // ========================================================================
