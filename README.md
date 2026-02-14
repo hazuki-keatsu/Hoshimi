@@ -8,4 +8,4 @@ A **high-performance**, **content-driven**, and **easy-to-use** visual novel eng
 
 ## TODO
 
-- [ ] Maybe we can implement a more efficient diff algorithm for the UI tree update.
+- [x] Maybe we can implement a more efficient diff algorithm for the UI tree update.

@@ -212,6 +212,17 @@ pub trait Parent: Debug {
 
     /// Insert a child at the given index.
     fn insert_child(&mut self, _index: usize, _child: Box<dyn RenderObject>) {}
+
+    /// Replace a child at the given index with a new one.
+    ///
+    /// This is more efficient than remove + insert for single replacements
+    /// as it avoids index shifting issues.
+    fn replace_child(&mut self, _index: usize, _child: Box<dyn RenderObject>) {
+        // Default implementation: remove then insert
+        // Subclasses should override for better performance
+        self.remove_child(_index);
+        self.insert_child(_index, _child);
+    }
 }
 
 // ============================================================================

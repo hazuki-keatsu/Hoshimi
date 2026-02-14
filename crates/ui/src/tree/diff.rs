@@ -13,17 +13,22 @@
 //!
 //! # Key Matching Optimization
 //!
-//! For lists with keys, the algorithm uses a simplified LCS (Longest Common Subsequence)
-//! approach to minimize DOM operations (insert/remove/move).
+//! For lists with keys, the algorithm uses LIS (Longest Increasing Subsequence)
+//! to minimize move operations. This is the same approach used by React and Flutter.
+//!
+//! # Performance
+//!
+//! - Time complexity: O(n log n) for LIS computation
+//! - Space complexity: O(n) for key maps and position arrays
 
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::key::WidgetKey;
 use crate::widget::Widget;
 
 /// Result of diffing two widget trees
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DiffOperation<'a> {
     /// Insert a new widget at the given index
     Insert {
@@ -57,6 +62,15 @@ pub enum DiffOperation<'a> {
         widget: &'a dyn Widget,
     },
     
+    /// Replace the widget at the given index (atomic remove + insert)
+    /// This is more efficient than separate Remove + Insert operations
+    Replace {
+        /// Index to replace at
+        index: usize,
+        /// Widget with new configuration
+        widget: &'a dyn Widget,
+    },
+    
     /// No operation needed (widget unchanged)
     None {
         /// Index that remains unchanged
@@ -86,6 +100,42 @@ impl<'a> DiffResult<'a> {
     /// Check if there are any operations
     pub fn has_changes(&self) -> bool {
         !self.operations.is_empty() || !self.child_diffs.is_empty()
+    }
+    
+    /// Optimize operations by merging consecutive Remove + Insert into Replace
+    pub fn optimize(&mut self) {
+        if self.operations.len() < 2 {
+            return;
+        }
+        
+        let mut optimized = Vec::with_capacity(self.operations.len());
+        let mut i = 0;
+        
+        while i < self.operations.len() {
+            match (&self.operations[i], self.operations.get(i + 1)) {
+                (
+                    DiffOperation::Remove { index: r_idx },
+                    Some(DiffOperation::Insert { index: i_idx, widget })
+                ) if r_idx == i_idx => {
+                    optimized.push(DiffOperation::Replace {
+                        index: *r_idx,
+                        widget: *widget,
+                    });
+                    i += 2;
+                }
+                _ => {
+                    optimized.push(self.operations[i].clone());
+                    i += 1;
+                }
+            }
+        }
+        
+        self.operations = optimized;
+        
+        // Recursively optimize child diffs
+        for (_, child_diff) in &mut self.child_diffs {
+            child_diff.optimize();
+        }
     }
 }
 
@@ -123,7 +173,7 @@ impl WidgetDiffer {
         let old_children = old.children();
         let new_children = new.children();
         
-        let (child_ops, child_diffs) = Self::diff_children(&old_children, &new_children);
+        let (mut child_ops, child_diffs) = Self::diff_children(&old_children, &new_children);
         
         // Build result
         let mut operations = Vec::new();
@@ -136,12 +186,17 @@ impl WidgetDiffer {
         }
         
         // Merge child operations
-        operations.extend(child_ops);
+        operations.append(&mut child_ops);
         
-        Some(DiffResult {
+        let mut result = DiffResult {
             operations,
             child_diffs,
-        })
+        };
+        
+        // Optimize operations (merge Remove+Insert into Replace)
+        result.optimize();
+        
+        Some(result)
     }
     
     /// Diff two lists of children
@@ -183,14 +238,11 @@ impl WidgetDiffer {
             
             if let Some(diff) = Self::diff_widget(old_child, new_child) {
                 if diff.has_changes() {
-                    // Store child diff for recursive processing
-                    // This includes both the child's own operations and its nested child_diffs
                     child_diffs.push((i, diff));
                 }
             } else {
-                // Types differ - remove old, insert new
-                operations.push(DiffOperation::Remove { index: i });
-                operations.push(DiffOperation::Insert {
+                // Types differ - use Replace instead of Remove + Insert
+                operations.push(DiffOperation::Replace {
                     index: i,
                     widget: new_child,
                 });
@@ -216,7 +268,12 @@ impl WidgetDiffer {
         (operations, child_diffs)
     }
     
-    /// Diff children with keys using LCS-based algorithm
+    /// Diff children with keys using LIS-based algorithm
+    ///
+    /// This algorithm minimizes move operations by:
+    /// 1. Matching children by key
+    /// 2. Computing the Longest Increasing Subsequence of matched positions
+    /// 3. Only moving children not in the LIS
     fn diff_keyed_children<'a>(
         old_children: &[&dyn Widget],
         new_children: &[&'a dyn Widget],
@@ -224,69 +281,84 @@ impl WidgetDiffer {
         let mut operations = Vec::new();
         let mut child_diffs = Vec::new();
         
-        // Build key -> index maps
-        let old_key_map: HashMap<Option<WidgetKey>, usize> = old_children
+        // Build key -> old_index map
+        let old_key_map: HashMap<WidgetKey, usize> = old_children
             .iter()
             .enumerate()
-            .map(|(i, w)| (w.key(), i))
+            .filter_map(|(i, w)| w.key().map(|k| (k, i)))
             .collect();
         
-        // Note: new_key_map could be used for reverse lookups in advanced diff algorithms
-        let _new_key_map: HashMap<Option<WidgetKey>, usize> = new_children
-            .iter()
-            .enumerate()
-            .map(|(i, w)| (w.key(), i))
-            .collect();
+        // Track mapping: new_index -> old_index (for matched children)
+        let mut new_to_old: Vec<Option<usize>> = vec![None; new_children.len()];
         
-        // Track which old indices are still in use
-        let mut used_old_indices: Vec<bool> = vec![false; old_children.len()];
+        // Track which old children are matched
+        let mut matched_old: HashSet<usize> = HashSet::new();
         
-        // Track new position for each new child
-        let mut new_positions: Vec<Option<usize>> = vec![None; new_children.len()];
-        
-        // First pass: match by key
+        // First pass: match by key and type
         for (new_idx, new_child) in new_children.iter().enumerate() {
-            let key = new_child.key();
-            
-            if let Some(&old_idx) = old_key_map.get(&key) {
-                // Found matching key
-                let old_child = old_children[old_idx];
-                
-                // Check if types match
-                if old_child.widget_type() == new_child.widget_type() {
-                    used_old_indices[old_idx] = true;
-                    new_positions[new_idx] = Some(old_idx);
+            if let Some(key) = new_child.key() {
+                if let Some(&old_idx) = old_key_map.get(&key) {
+                    let old_child = old_children[old_idx];
                     
-                    // Check if update needed
-                    if let Some(diff) = Self::diff_widget(old_child, *new_child) {
-                        if diff.has_changes() {
-                            // Store child diff for recursive processing
-                            child_diffs.push((new_idx, diff));
+                    // Check if types match
+                    if old_child.widget_type() == new_child.widget_type() {
+                        new_to_old[new_idx] = Some(old_idx);
+                        matched_old.insert(old_idx);
+                        
+                        // Check if update needed
+                        if let Some(diff) = Self::diff_widget(old_child, *new_child) {
+                            if diff.has_changes() {
+                                child_diffs.push((new_idx, diff));
+                            }
                         }
-                    }
-                    
-                    // Check if move needed
-                    if old_idx != new_idx {
-                        operations.push(DiffOperation::Move {
-                            from: old_idx,
-                            to: new_idx,
-                            widget: *new_child,
-                        });
                     }
                 }
             }
         }
         
-        // Second pass: remove unmatched old children (in reverse order)
-        for (old_idx, used) in used_old_indices.iter().enumerate().rev() {
-            if !used {
-                operations.push(DiffOperation::Remove { index: old_idx });
-            }
+        // Build array of old indices for matched new children (in new order)
+        let matched_old_indices: Vec<usize> = new_to_old
+            .iter()
+            .filter_map(|&old_idx| old_idx)
+            .collect();
+        
+        // Compute LIS on matched positions
+        let lis_indices = Self::compute_lis(&matched_old_indices);
+        
+        // Convert LIS indices to a set of old indices that should NOT be moved
+        let lis_old_indices: HashSet<usize> = lis_indices
+            .iter()
+            .map(|&lis_idx| matched_old_indices[lis_idx])
+            .collect();
+        
+        // Generate operations
+        
+        // 1. Remove unmatched old children (in reverse order to maintain indices)
+        let mut unmatched_old: Vec<usize> = (0..old_children.len())
+            .filter(|i| !matched_old.contains(i))
+            .collect();
+        unmatched_old.sort_by(|a, b| b.cmp(a));
+        
+        for old_idx in unmatched_old {
+            operations.push(DiffOperation::Remove { index: old_idx });
         }
         
-        // Third pass: insert new children that weren't matched
+        // 2. Process new children in order
         for (new_idx, new_child) in new_children.iter().enumerate() {
-            if new_positions[new_idx].is_none() {
+            if let Some(old_idx) = new_to_old[new_idx] {
+                // This child exists in old tree
+                if lis_old_indices.contains(&old_idx) {
+                    // Part of LIS - no move needed, already in correct relative position
+                } else {
+                    // Not in LIS - needs to be moved
+                    operations.push(DiffOperation::Move {
+                        from: old_idx,
+                        to: new_idx,
+                        widget: *new_child,
+                    });
+                }
+            } else {
+                // New child - insert
                 operations.push(DiffOperation::Insert {
                     index: new_idx,
                     widget: *new_child,
@@ -295,6 +367,76 @@ impl WidgetDiffer {
         }
         
         (operations, child_diffs)
+    }
+    
+    /// Compute the Longest Increasing Subsequence (LIS)
+    ///
+    /// Returns the indices of elements that form the LIS.
+    /// Uses O(n log n) algorithm with binary search.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// // Input: [3, 1, 2, 4]
+    /// // One LIS is [1, 2, 4] at indices [1, 2, 3]
+    /// // Returns: [1, 2, 3]
+    /// ```
+    fn compute_lis(arr: &[usize]) -> Vec<usize> {
+        if arr.is_empty() {
+            return Vec::new();
+        }
+        
+        let n = arr.len();
+        
+        // tails[i] = smallest tail element for LIS of length i+1
+        let mut tails: Vec<usize> = Vec::with_capacity(n);
+        
+        // tails_idx[i] = index in arr where tails[i] came from
+        let mut tails_idx: Vec<usize> = Vec::with_capacity(n);
+        
+        // prev[i] = index of previous element in LIS ending at arr[i]
+        let mut prev: Vec<Option<usize>> = vec![None; n];
+        
+        for i in 0..n {
+            let val = arr[i];
+            
+            // Binary search for the first tail >= val
+            let pos = tails.partition_point(|&x| x < val);
+            
+            if pos == tails.len() {
+                // Extend the LIS
+                tails.push(val);
+                tails_idx.push(i);
+            } else {
+                // Update existing tail
+                tails[pos] = val;
+                tails_idx[pos] = i;
+            }
+            
+            // Set previous pointer
+            if pos > 0 {
+                prev[i] = Some(tails_idx[pos - 1]);
+            }
+        }
+        
+        // Reconstruct LIS indices
+        let lis_len = tails.len();
+        let mut result = Vec::with_capacity(lis_len);
+        
+        // Start from the last element of LIS
+        let mut current = tails_idx.last().copied();
+        
+        // Build result in reverse order
+        let mut temp = Vec::with_capacity(lis_len);
+        while let Some(idx) = current {
+            temp.push(idx);
+            current = prev[idx];
+        }
+        
+        // Reverse to get correct order
+        result.extend(temp.into_iter().rev());
+        
+        result
     }
 }
 
@@ -319,5 +461,103 @@ impl WidgetIdentity {
     /// Check if two widgets can be updated in place
     pub fn can_update(&self, other: &WidgetIdentity) -> bool {
         self.type_id == other.type_id && self.key == other.key
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_lis_empty() {
+        assert_eq!(WidgetDiffer::compute_lis(&[]), Vec::<usize>::new());
+    }
+    
+    #[test]
+    fn test_lis_single() {
+        assert_eq!(WidgetDiffer::compute_lis(&[5]), vec![0]);
+    }
+    
+    #[test]
+    fn test_lis_increasing() {
+        // [1, 2, 3, 4] - entire array is LIS
+        assert_eq!(WidgetDiffer::compute_lis(&[1, 2, 3, 4]), vec![0, 1, 2, 3]);
+    }
+    
+    #[test]
+    fn test_lis_decreasing() {
+        // [4, 3, 2, 1] - any single element is LIS
+        let result = WidgetDiffer::compute_lis(&[4, 3, 2, 1]);
+        assert_eq!(result.len(), 1);
+        assert!(result[0] < 4);
+    }
+    
+    #[test]
+    fn test_lis_mixed() {
+        // [3, 1, 2, 4] - LIS is [1, 2, 4] at indices [1, 2, 3]
+        let result = WidgetDiffer::compute_lis(&[3, 1, 2, 4]);
+        assert_eq!(result.len(), 3);
+        
+        // Verify the result forms a valid increasing subsequence
+        let arr = [3, 1, 2, 4];
+        for i in 1..result.len() {
+            assert!(arr[result[i - 1]] < arr[result[i]]);
+        }
+    }
+    
+    #[test]
+    fn test_lis_complex() {
+        // [10, 9, 2, 5, 3, 7, 101, 18]
+        // LIS is [2, 3, 7, 18] or [2, 5, 7, 101] etc.
+        let arr = [10, 9, 2, 5, 3, 7, 101, 18];
+        let result = WidgetDiffer::compute_lis(&arr);
+        
+        // Length should be 4
+        assert_eq!(result.len(), 4);
+        
+        // Verify it's a valid increasing subsequence
+        for i in 1..result.len() {
+            assert!(arr[result[i - 1]] < arr[result[i]]);
+        }
+    }
+    
+    #[test]
+    fn test_lis_with_duplicates() {
+        // [2, 2, 2] - strictly increasing means only one element
+        let result = WidgetDiffer::compute_lis(&[2, 2, 2]);
+        assert_eq!(result.len(), 1);
+    }
+    
+    #[test]
+    fn test_diff_result_optimize() {
+        // Test that Remove + Insert at same index becomes Replace
+        use std::any::Any;
+        
+        #[derive(Debug, Clone)]
+        struct TestWidget;
+        
+        impl Widget for TestWidget {
+            fn create_render_object(&self) -> Box<dyn crate::render_object::RenderObject> {
+                unimplemented!()
+            }
+            fn update_render_object(&self, _render_object: &mut dyn crate::render_object::RenderObject) {}
+            fn as_any(&self) -> &dyn Any { self }
+            fn clone_boxed(&self) -> Box<dyn Widget> { Box::new(self.clone()) }
+        }
+        
+        let widget = TestWidget;
+        
+        let mut result = DiffResult {
+            operations: vec![
+                DiffOperation::Remove { index: 0 },
+                DiffOperation::Insert { index: 0, widget: &widget },
+            ],
+            child_diffs: Vec::new(),
+        };
+        
+        result.optimize();
+        
+        assert_eq!(result.operations.len(), 1);
+        assert!(matches!(result.operations[0], DiffOperation::Replace { index: 0, .. }));
     }
 }

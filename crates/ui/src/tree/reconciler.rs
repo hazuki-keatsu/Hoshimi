@@ -8,10 +8,11 @@
 //!
 //! Operations are applied in a specific order to maintain consistency:
 //! 1. Unmount and remove nodes scheduled for deletion
-//! 2. Create and mount new nodes
+//! 2. Replace nodes (atomic unmount + mount)
 //! 3. Move nodes to new positions
-//! 4. Update existing nodes with new configuration
-//! 5. Recursively reconcile children
+//! 4. Create and mount new nodes
+//! 5. Update existing nodes with new configuration
+//! 6. Recursively reconcile children
 
 use tracing::{debug, trace};
 
@@ -49,11 +50,13 @@ impl Reconciler {
     ) {
         // Sort operations by type for proper ordering:
         // 1. First collect removes (will be processed in reverse order)
-        // 2. Then moves
-        // 3. Then inserts
-        // 4. Finally updates
+        // 2. Then replaces (atomic unmount + mount)
+        // 3. Then moves
+        // 4. Then inserts
+        // 5. Finally updates
         
         let mut removes: Vec<usize> = Vec::new();
+        let mut replaces: Vec<(usize, &dyn Widget)> = Vec::new();
         let mut inserts: Vec<(usize, &dyn Widget)> = Vec::new();
         let mut moves: Vec<(usize, usize, &dyn Widget)> = Vec::new();
         let mut updates: Vec<(usize, &dyn Widget)> = Vec::new();
@@ -62,6 +65,9 @@ impl Reconciler {
             match op {
                 DiffOperation::Remove { index } => {
                     removes.push(*index);
+                }
+                DiffOperation::Replace { index, widget } => {
+                    replaces.push((*index, *widget));
                 }
                 DiffOperation::Insert { index, widget } => {
                     inserts.push((*index, *widget));
@@ -82,6 +88,13 @@ impl Reconciler {
         removes.sort_by(|a, b| b.cmp(a));
         for index in removes {
             Self::remove_child(render_object, index);
+        }
+        
+        // Apply replaces (atomic unmount + mount)
+        // Sort by index in reverse order to maintain correct indices during replacement
+        replaces.sort_by(|a, b| b.0.cmp(&a.0));
+        for (index, widget) in replaces {
+            Self::replace_child(render_object, index, widget);
         }
         
         // Apply moves (complex - may need temporary storage)
@@ -124,6 +137,28 @@ impl Reconciler {
         if let Some(removed) = render_object.remove_child(index) {
             drop(removed);
         }
+    }
+    
+    /// Replace a child at the given index (atomic remove + insert)
+    fn replace_child(render_object: &mut dyn RenderObject, index: usize, widget: &dyn Widget) {
+        debug!("Replacing child at index {}", index);
+        
+        // First unmount the old child
+        {
+            let mut children = render_object.children_mut();
+            if let Some(child) = children.get_mut(index) {
+                Self::unmount_recursive(*child);
+            }
+        }
+        
+        // Create new RenderObject from widget
+        let mut new_child = widget.create_render_object();
+        
+        // Mount the new child
+        Self::mount_recursive(new_child.as_mut());
+        
+        // Replace in parent (this is more efficient than remove + insert)
+        render_object.replace_child(index, new_child);
     }
     
     /// Insert a new child at the given index
@@ -222,7 +257,13 @@ impl Reconciler {
                         DiffOperation::Insert { index: child_idx, widget } => {
                             Self::insert_child(*child, *child_idx, *widget);
                         }
-                        _ => {}
+                        DiffOperation::Replace { index: child_idx, widget } => {
+                            Self::replace_child(*child, *child_idx, *widget);
+                        }
+                        DiffOperation::Move { from, to, widget } => {
+                            Self::apply_moves(*child, &[(*from, *to, *widget)]);
+                        }
+                        DiffOperation::None { .. } => {}
                     }
                 }
                 
