@@ -10,7 +10,7 @@ use std::rc::Weak;
 use hoshimi_types::{Offset, Rect, Size};
 
 use crate::painter::Painter;
-use crate::render::RenderObject;
+use crate::render_object::RenderObject;
 
 // ============================================================================
 // Snapshot Handle

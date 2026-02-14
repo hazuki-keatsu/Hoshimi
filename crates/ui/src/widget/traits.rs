@@ -7,7 +7,7 @@ use std::any::{Any, TypeId};
 use std::fmt::Debug;
 
 use crate::key::WidgetKey;
-use crate::render::RenderObject;
+use crate::render_object::RenderObject;
 
 /// The core Widget trait
 /// 

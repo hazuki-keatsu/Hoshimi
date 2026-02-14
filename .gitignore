@@ -1,3 +1,6 @@
-/target
+target
 
-/.VSCodeCounter
+.VSCodeCounter
+.idea
+.vscode
+.trae

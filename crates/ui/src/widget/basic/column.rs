@@ -10,7 +10,7 @@ use hoshimi_types::{
 
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render_object::{RenderObject, RenderObjectState};
 use crate::widget::Widget;
 use crate::impl_render_object_common;
 

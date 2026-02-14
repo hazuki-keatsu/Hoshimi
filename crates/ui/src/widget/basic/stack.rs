@@ -9,7 +9,7 @@ use hoshimi_types::{Alignment, Constraints, Offset, Rect, Size};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{RenderObject, RenderObjectState};
+use crate::render_object::{RenderObject, RenderObjectState};
 use crate::widget::Widget;
 use crate::impl_render_object_common;
 

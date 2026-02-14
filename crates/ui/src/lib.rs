@@ -65,7 +65,7 @@ pub mod events;
 pub mod gesture;
 pub mod key;
 pub mod painter;
-pub mod render;
+pub mod render_object;
 pub mod tree;
 pub mod widget;
 pub mod router;
@@ -76,7 +76,7 @@ pub use events::{EventResult, GestureKind, InputEvent, UIMessage};
 pub use gesture::{GestureConfig, InputEventQueue};
 pub use key::WidgetKey;
 pub use painter::{Painter, TextMeasurer};
-pub use render::{RenderObject, RenderObjectState};
+pub use render_object::{RenderObject, RenderObjectState};
 pub use tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
 pub use widget::Widget;
 pub use router::{Router, Page, PageParams, TransitionType, NavigationResult};
@@ -98,7 +98,7 @@ pub mod prelude {
     pub use crate::gesture::{GestureConfig, InputEventQueue};
     pub use crate::key::{WidgetIdentity, WidgetKey};
     pub use crate::painter::{Painter, TextMeasurer};
-    pub use crate::render::{RenderObject, RenderObjectState};
+    pub use crate::render_object::{RenderObject, RenderObjectState};
     pub use crate::tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
     pub use crate::widget::Widget;
 

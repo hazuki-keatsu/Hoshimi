@@ -15,7 +15,7 @@
 
 use tracing::{debug, trace};
 
-use crate::render::RenderObject;
+use crate::render_object::RenderObject;
 use crate::tree::diff::{DiffOperation, DiffResult};
 use crate::widget::Widget;
 

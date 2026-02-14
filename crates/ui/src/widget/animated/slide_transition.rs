@@ -10,7 +10,7 @@ use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{Animatable, RenderObject, RenderObjectState};
+use crate::render_object::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// Direction for slide transitions

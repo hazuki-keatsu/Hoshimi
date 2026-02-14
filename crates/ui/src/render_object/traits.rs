@@ -432,11 +432,11 @@ pub trait Animatable {
 #[macro_export]
 macro_rules! impl_single_child_render_object {
     ($child_field:ident) => {
-        fn children(&self) -> Vec<&dyn $crate::render::RenderObject> {
+        fn children(&self) -> Vec<&dyn $crate::render_object::RenderObject> {
             vec![self.$child_field.as_ref()]
         }
         
-        fn children_mut(&mut self) -> Vec<&mut dyn $crate::render::RenderObject> {
+        fn children_mut(&mut self) -> Vec<&mut dyn $crate::render_object::RenderObject> {
             vec![self.$child_field.as_mut()]
         }
         
@@ -472,8 +472,8 @@ macro_rules! impl_animated_tick {
     ($state_field:ident, $child_field:ident) => {
         fn tick(&mut self, delta: f32) -> bool {
             // Update this object's animation
-            $crate::render::Animatable::update(self, delta);
-            let self_animating = $crate::render::Animatable::is_animating(self);
+            $crate::render_object::Animatable::update(self, delta);
+            let self_animating = $crate::render_object::Animatable::is_animating(self);
             
             // Recursively tick children
             let child_animating = self.$child_field.tick(delta);

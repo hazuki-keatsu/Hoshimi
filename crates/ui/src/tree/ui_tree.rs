@@ -12,7 +12,7 @@ use crate::events::{EventResult, InputEvent, UIMessage};
 use crate::gesture::{GestureConfig, InputEventQueue};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::RenderObject;
+use crate::render_object::RenderObject;
 use crate::widget::Widget;
 
 use super::diff::WidgetDiffer;

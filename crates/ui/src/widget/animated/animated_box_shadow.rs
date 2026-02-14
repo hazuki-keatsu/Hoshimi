@@ -13,7 +13,7 @@ use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::HitTestResult;
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render::{Animatable, RenderObject, RenderObjectState};
+use crate::render_object::{Animatable, RenderObject, RenderObjectState};
 use crate::widget::Widget;
 
 /// A widget that animates box shadow changes
