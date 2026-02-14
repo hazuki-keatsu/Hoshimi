@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, EdgeInsets, Offset, Size};
+use hoshimi_types::{Constraints, EdgeInsets, Offset, Rect, Size};
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Padding widget that adds space around its child
 #[derive(Debug)]
@@ -128,13 +130,11 @@ impl PaddingRenderObject {
     }
 }
 
-impl RenderObject for PaddingRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for PaddingRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let horizontal_padding = self.padding.left + self.padding.right;
         let vertical_padding = self.padding.top + self.padding.bottom;
-        
+
         // Deflate constraints for child
         let child_constraints = Constraints::new(
             (constraints.min_width - horizontal_padding).max(0.0),
@@ -142,65 +142,122 @@ impl RenderObject for PaddingRenderObject {
             (constraints.min_height - vertical_padding).max(0.0),
             (constraints.max_height - vertical_padding).max(0.0),
         );
-        
+
         let child_size = self.child.layout(child_constraints);
-        
+
         // Position child with left/top padding offset
         self.child.set_offset(Offset::new(self.padding.left, self.padding.top));
-        
+
         // Calculate final size
         let size = constraints.constrain(Size::new(
             child_size.width + horizontal_padding,
             child_size.height + vertical_padding,
         ));
-        
+
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         let horizontal_padding = self.padding.left + self.padding.right;
         let child_height = (height - self.padding.top - self.padding.bottom).max(0.0);
         self.child.get_min_intrinsic_width(child_height) + horizontal_padding
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         let horizontal_padding = self.padding.left + self.padding.right;
         let child_height = (height - self.padding.top - self.padding.bottom).max(0.0);
         self.child.get_max_intrinsic_width(child_height) + horizontal_padding
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         let vertical_padding = self.padding.top + self.padding.bottom;
         let child_width = (width - self.padding.left - self.padding.right).max(0.0);
         self.child.get_min_intrinsic_height(child_width) + vertical_padding
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         let vertical_padding = self.padding.top + self.padding.bottom;
         let child_width = (width - self.padding.left - self.padding.right).max(0.0);
         self.child.get_max_intrinsic_height(child_width) + vertical_padding
     }
-    
+}
+
+impl Paintable for PaddingRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for PaddingRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for PaddingRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for PaddingRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
-        self.state.mark_needs_layout();
+}
+
+impl RenderObject for PaddingRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

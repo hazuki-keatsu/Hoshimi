@@ -4,13 +4,14 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Alignment, Constraints, ImageFit, Rect, Size};
+use hoshimi_types::{Alignment, Constraints, ImageFit, Offset, Rect, Size};
 
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Image widget for displaying images
 #[derive(Debug, Clone)]
@@ -258,29 +259,53 @@ impl ImageRenderObject {
     }
 }
 
-impl RenderObject for ImageRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for ImageRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let width = self.explicit_width.unwrap_or(self.intrinsic_size.width);
         let height = self.explicit_height.unwrap_or(self.intrinsic_size.height);
-        
+
         let size = constraints.constrain(Size::new(width, height));
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for ImageRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         // Get actual image size from painter if available
         let actual_intrinsic_size = painter
             .get_image_size(&self.source)
             .unwrap_or(self.intrinsic_size);
-        
+
         let rect = self.state.get_rect();
         let dest_rect = self.calculate_dest_rect_with_size(rect, actual_intrinsic_size);
-        
+
         if (self.opacity - 1.0).abs() < f32::EPSILON {
             painter.draw_image_rect(&self.source, dest_rect);
         } else {
@@ -289,5 +314,29 @@ impl RenderObject for ImageRenderObject {
             painter.draw_image_rect(&self.source, dest_rect);
             painter.restore();
         }
+    }
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for ImageRenderObject {}
+
+impl Lifecycle for ImageRenderObject {}
+
+impl Parent for ImageRenderObject {}
+
+impl RenderObject for ImageRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

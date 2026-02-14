@@ -9,9 +9,10 @@ use hoshimi_types::{Alignment, Constraints, Offset, Rect, Size};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Stack fit behavior
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -192,9 +193,7 @@ impl StackRenderObject {
     }
 }
 
-impl RenderObject for StackRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for StackRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let non_positioned_constraints = match self.fit {
             StackFit::Loose => constraints.loosen(),
@@ -204,35 +203,59 @@ impl RenderObject for StackRenderObject {
             )),
             StackFit::Passthrough => constraints,
         };
-        
+
         // Layout all children and find the maximum size
         let mut max_width = constraints.min_width;
         let mut max_height = constraints.min_height;
-        
+
         let mut child_sizes: Vec<Size> = Vec::with_capacity(self.children.len());
-        
+
         for child in &mut self.children {
             let size = child.layout(non_positioned_constraints);
             child_sizes.push(size);
             max_width = max_width.max(size.width);
             max_height = max_height.max(size.height);
         }
-        
+
         let size = constraints.constrain(Size::new(max_width, max_height));
-        
+
         // Position children according to alignment
         for (i, child) in self.children.iter_mut().enumerate() {
             let child_size = child_sizes[i];
             let offset = self.alignment.align(child_size, size);
             child.set_offset(offset);
         }
-        
+
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         // Stack: max of children's min widths
         let mut max_width: f32 = 0.0;
@@ -241,7 +264,7 @@ impl RenderObject for StackRenderObject {
         }
         max_width
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         // Stack: max of children's max widths
         let mut max_width: f32 = 0.0;
@@ -250,7 +273,7 @@ impl RenderObject for StackRenderObject {
         }
         max_width
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         // Stack: max of children's min heights
         let mut max_height: f32 = 0.0;
@@ -259,7 +282,7 @@ impl RenderObject for StackRenderObject {
         }
         max_height
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         // Stack: max of children's max heights
         let mut max_height: f32 = 0.0;
@@ -268,30 +291,44 @@ impl RenderObject for StackRenderObject {
         }
         max_height
     }
-    
+}
+
+impl Paintable for StackRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
-        
+
         if self.clip_behavior {
             painter.clip_rect(Rect::from_size(self.state.size));
         }
-        
+
         // Paint children in order (first child at bottom)
         for child in &self.children {
             child.paint(painter);
         }
-        
+
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for StackRenderObject {
     fn hit_test(&self, position: Offset) -> HitTestResult {
         // Check if position is within bounds
-        if position.x < 0.0 || position.y < 0.0 ||
-           position.x > self.state.size.width || position.y > self.state.size.height {
+        if position.x < 0.0 || position.y < 0.0
+            || position.x > self.state.size.width
+            || position.y > self.state.size.height
+        {
             return HitTestResult::Miss;
         }
-        
+
         // Hit test children in reverse order (topmost first)
         for child in self.children.iter().rev() {
             let child_offset = child.get_offset();
@@ -304,10 +341,10 @@ impl RenderObject for StackRenderObject {
                 return result;
             }
         }
-        
+
         HitTestResult::HitTransparent
     }
-    
+
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         // Handle events in reverse order (topmost first)
         for child in self.children.iter_mut().rev() {
@@ -316,34 +353,60 @@ impl RenderObject for StackRenderObject {
                 return EventResult::Consumed;
             }
         }
-        
+
         EventResult::Ignored
     }
-    
+}
+
+impl Lifecycle for StackRenderObject {
+    fn on_mount(&mut self) {
+        for child in &mut self.children {
+            child.on_mount();
+        }
+    }
+
+    fn on_unmount(&mut self) {
+        for child in &mut self.children {
+            child.on_unmount();
+        }
+    }
+}
+
+impl Parent for StackRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         self.children.iter().map(|c| c.as_ref()).collect()
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         self.children.iter_mut().map(|c| c.as_mut()).collect()
     }
-    
+
     fn add_child(&mut self, child: Box<dyn RenderObject>) {
         self.children.push(child);
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
     }
-    
+
     fn remove_child(&mut self, index: usize) -> Option<Box<dyn RenderObject>> {
         if index < self.children.len() {
-            self.state.mark_needs_layout();
+            self.state.needs_layout = true;
             Some(self.children.remove(index))
         } else {
             None
         }
     }
-    
+
     fn insert_child(&mut self, index: usize, child: Box<dyn RenderObject>) {
         self.children.insert(index.min(self.children.len()), child);
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
+    }
+}
+
+impl RenderObject for StackRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

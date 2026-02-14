@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, Size, TextAlign, TextOverflow, TextStyle};
+use hoshimi_types::{Constraints, Offset, Rect, Size, TextAlign, TextOverflow, TextStyle};
+
 
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Text widget for displaying styled text
 #[derive(Debug, Clone)]
@@ -176,9 +178,7 @@ impl TextRenderObject {
     }
 }
 
-impl RenderObject for TextRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for TextRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Calculate text width with better heuristics for different character types
         // CJK characters are approximately square (width ≈ font_size)
@@ -196,20 +196,70 @@ impl RenderObject for TextRenderObject {
                 approx_width += self.style.font_size * 0.8;
             }
         }
-        
+
         let line_height = self.style.line_height.unwrap_or(self.style.font_size * 1.2);
-        
+
         let size = constraints.constrain(Size::new(approx_width, line_height));
         self.state.size = size;
         self.state.needs_layout = false;
         self.cached_size = Some(size);
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for TextRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         let rect = self.state.get_rect();
         painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+    }
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for TextRenderObject {}
+
+impl Lifecycle for TextRenderObject {}
+
+impl Parent for TextRenderObject {}
+
+impl RenderObject for TextRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -231,7 +281,7 @@ fn is_cjk_char(ch: char) -> bool {
         || (0x30A0..=0x30FF).contains(&code)
         // Hangul Syllables
         || (0xAC00..=0xD7AF).contains(&code)
-        // Fullwidth Latin characters
+        // Full-width Latin characters
         || (0xFF00..=0xFFEF).contains(&code)
         // CJK Symbols and Punctuation
         || (0x3000..=0x303F).contains(&code)

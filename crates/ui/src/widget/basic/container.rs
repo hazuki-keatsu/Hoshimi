@@ -5,14 +5,17 @@
 use std::any::{Any, TypeId};
 
 use hoshimi_types::{
-    Alignment, BoxDecoration, Constraints, EdgeInsets, Offset, Size,
+    Alignment, BoxDecoration, Constraints, EdgeInsets, Offset, Rect, Size,
 };
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
+use crate::state::StatelessWidget;
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Container widget for decorating and sizing a single child
 #[derive(Debug)]
@@ -218,6 +221,8 @@ impl Widget for Container {
     }
 }
 
+impl StatelessWidget for Container {}
+
 /// Render object for Container widget
 #[derive(Debug)]
 pub struct ContainerRenderObject {
@@ -254,23 +259,21 @@ impl ContainerRenderObject {
     }
 }
 
-impl RenderObject for ContainerRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for ContainerRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let margin_size = self.margin.total_size();
         let padding_size = self.padding.total_size();
-        
+
         // Calculate inner constraints (accounting for margin and padding)
         let inner_constraints = constraints.deflate(self.margin).deflate(self.padding);
-        
+
         // Layout child if present
         let child_size = if let Some(ref mut child) = self.child {
             child.layout(inner_constraints)
         } else {
             Size::zero()
         };
-        
+
         // Calculate content size
         let content_width = self.explicit_width.unwrap_or(
             child_size.width + padding_size.width
@@ -278,20 +281,20 @@ impl RenderObject for ContainerRenderObject {
         let content_height = self.explicit_height.unwrap_or(
             child_size.height + padding_size.height
         );
-        
+
         // Total size including margin
         let total_size = constraints.constrain(Size::new(
             content_width + margin_size.width,
             content_height + margin_size.height,
         ));
-        
+
         // Position child within container
         if let Some(ref mut child) = self.child {
             let available_for_child = Size::new(
                 total_size.width - margin_size.width - padding_size.width,
                 total_size.height - margin_size.height - padding_size.height,
             );
-            
+
             let child_offset = if let Some(alignment) = self.alignment {
                 let align_offset = alignment.align_offset(available_for_child, child_size);
                 Offset::new(
@@ -304,83 +307,109 @@ impl RenderObject for ContainerRenderObject {
                     self.margin.top + self.padding.top,
                 )
             };
-            
+
             child.set_offset(child_offset);
         }
-        
+
         self.state.size = total_size;
         self.state.needs_layout = false;
-        
+
         total_size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         if let Some(width) = self.explicit_width {
             return width + self.margin.left + self.margin.right;
         }
-        let horizontal_insets = self.margin.left + self.margin.right 
+        let horizontal_insets = self.margin.left + self.margin.right
             + self.padding.left + self.padding.right;
-        let child_height = (height - self.margin.top - self.margin.bottom 
+        let child_height = (height - self.margin.top - self.margin.bottom
             - self.padding.top - self.padding.bottom).max(0.0);
         let child_width = self.child.as_ref()
             .map(|c| c.get_min_intrinsic_width(child_height))
             .unwrap_or(0.0);
         child_width + horizontal_insets
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         if let Some(width) = self.explicit_width {
             return width + self.margin.left + self.margin.right;
         }
-        let horizontal_insets = self.margin.left + self.margin.right 
+        let horizontal_insets = self.margin.left + self.margin.right
             + self.padding.left + self.padding.right;
-        let child_height = (height - self.margin.top - self.margin.bottom 
+        let child_height = (height - self.margin.top - self.margin.bottom
             - self.padding.top - self.padding.bottom).max(0.0);
         let child_width = self.child.as_ref()
             .map(|c| c.get_max_intrinsic_width(child_height))
             .unwrap_or(0.0);
         child_width + horizontal_insets
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         if let Some(height) = self.explicit_height {
             return height + self.margin.top + self.margin.bottom;
         }
-        let vertical_insets = self.margin.top + self.margin.bottom 
+        let vertical_insets = self.margin.top + self.margin.bottom
             + self.padding.top + self.padding.bottom;
-        let child_width = (width - self.margin.left - self.margin.right 
+        let child_width = (width - self.margin.left - self.margin.right
             - self.padding.left - self.padding.right).max(0.0);
         let child_height = self.child.as_ref()
             .map(|c| c.get_min_intrinsic_height(child_width))
             .unwrap_or(0.0);
         child_height + vertical_insets
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         if let Some(height) = self.explicit_height {
             return height + self.margin.top + self.margin.bottom;
         }
-        let vertical_insets = self.margin.top + self.margin.bottom 
+        let vertical_insets = self.margin.top + self.margin.bottom
             + self.padding.top + self.padding.bottom;
-        let child_width = (width - self.margin.left - self.margin.right 
+        let child_width = (width - self.margin.left - self.margin.right
             - self.padding.left - self.padding.right).max(0.0);
         let child_height = self.child.as_ref()
             .map(|c| c.get_max_intrinsic_height(child_width))
             .unwrap_or(0.0);
         child_height + vertical_insets
     }
-    
+}
+
+impl Paintable for ContainerRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         let rect = self.state.get_rect();
-        
+
         // Inset by margin to get the container bounds
         let container_rect = rect.inset(self.margin);
-        
+
         // Draw decoration
         if let Some(ref decoration) = self.decoration {
             painter.draw_box_decoration(container_rect, decoration);
         }
-        
+
         // Paint child
         if let Some(ref child) = self.child {
             painter.save();
@@ -389,20 +418,56 @@ impl RenderObject for ContainerRenderObject {
             painter.restore();
         }
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for ContainerRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        if let Some(ref mut child) = self.child {
+            child.handle_event(event)
+        } else {
+            EventResult::Ignored
+        }
+    }
+}
+
+impl Lifecycle for ContainerRenderObject {
+    fn on_mount(&mut self) {
+        if let Some(ref mut child) = self.child {
+            child.on_mount();
+        }
+    }
+
+    fn on_unmount(&mut self) {
+        if let Some(ref mut child) = self.child {
+            child.on_unmount();
+        }
+    }
+}
+
+impl Parent for ContainerRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         self.child.as_ref().map(|c| vec![c.as_ref()]).unwrap_or_default()
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         self.child.as_mut().map(|c| vec![c.as_mut()]).unwrap_or_default()
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = Some(child);
+}
+
+impl RenderObject for ContainerRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
     }
-    
-    fn remove_child(&mut self, _index: usize) -> Option<Box<dyn RenderObject>> {
-        self.child.take()
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

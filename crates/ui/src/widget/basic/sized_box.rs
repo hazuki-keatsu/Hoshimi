@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, Offset, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// SizedBox widget that forces a specific size
 #[derive(Debug)]
@@ -188,9 +190,7 @@ impl SizedBoxRenderObject {
     }
 }
 
-impl RenderObject for SizedBoxRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for SizedBoxRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Create constraints for the child
         let child_constraints = Constraints::new(
@@ -199,7 +199,7 @@ impl RenderObject for SizedBoxRenderObject {
             self.height.unwrap_or(0.0),
             self.height.unwrap_or(constraints.max_height),
         );
-        
+
         // Layout child if present
         let child_size = if let Some(child) = &mut self.child {
             child.layout(child_constraints);
@@ -208,18 +208,42 @@ impl RenderObject for SizedBoxRenderObject {
         } else {
             child_constraints.constrain(Size::ZERO)
         };
-        
+
         // Determine final size
         let width = self.width.unwrap_or(child_size.width);
         let height = self.height.unwrap_or(child_size.height);
-        
+
         let size = constraints.constrain(Size::new(width, height));
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         if let Some(width) = self.width {
             return width;
@@ -229,7 +253,7 @@ impl RenderObject for SizedBoxRenderObject {
         }
         0.0
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         if let Some(width) = self.width {
             return width;
@@ -239,7 +263,7 @@ impl RenderObject for SizedBoxRenderObject {
         }
         0.0
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         if let Some(height) = self.height {
             return height;
@@ -249,7 +273,7 @@ impl RenderObject for SizedBoxRenderObject {
         }
         0.0
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         if let Some(height) = self.height {
             return height;
@@ -259,44 +283,90 @@ impl RenderObject for SizedBoxRenderObject {
         }
         0.0
     }
-    
+
     fn is_relayout_boundary(&self) -> bool {
         // SizedBox is a relayout boundary when both dimensions are fixed
         self.width.is_some() && self.height.is_some()
     }
-    
+}
+
+impl Paintable for SizedBoxRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
-        
+
         if let Some(child) = &self.child {
             child.paint(painter);
         }
-        
+
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for SizedBoxRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        if let Some(ref mut child) = self.child {
+            child.handle_event(event)
+        } else {
+            EventResult::Ignored
+        }
+    }
+}
+
+impl Lifecycle for SizedBoxRenderObject {
+    fn on_mount(&mut self) {
+        if let Some(ref mut child) = self.child {
+            child.on_mount();
+        }
+    }
+
+    fn on_unmount(&mut self) {
+        if let Some(ref mut child) = self.child {
+            child.on_unmount();
+        }
+    }
+}
+
+impl Parent for SizedBoxRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         match &self.child {
             Some(child) => vec![child.as_ref()],
             None => vec![],
         }
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         match &mut self.child {
             Some(child) => vec![child.as_mut()],
             None => vec![],
         }
     }
-    
+
     fn add_child(&mut self, child: Box<dyn RenderObject>) {
         self.child = Some(child);
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
     }
-    
+
     fn remove_child(&mut self, _index: usize) -> Option<Box<dyn RenderObject>> {
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
         self.child.take()
+    }
+}
+
+impl RenderObject for SizedBoxRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

@@ -17,9 +17,10 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 use crate::events::{EventResult, GestureKind, HitTestResult, InputEvent, UIMessage};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Configuration for gesture callbacks (ID-based)
 #[derive(Debug, Clone, Default)]
@@ -222,31 +223,65 @@ impl GestureDetectorRenderObject {
     }
 }
 
-impl RenderObject for GestureDetectorRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for GestureDetectorRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // GestureDetector takes the size of its child
         let child_size = self.child.layout(constraints);
         self.child.set_offset(Offset::zero());
-        
+
         self.state.size = child_size;
         self.state.needs_layout = false;
-        
+
         child_size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for GestureDetectorRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for GestureDetectorRenderObject {
     fn hit_test(&self, position: Offset) -> HitTestResult {
         // Use local rect (at origin) since position is in local coordinates
         let rect = Rect::from_size(self.state.size);
-        
+
         if rect.contains(position) {
             if self.absorb_events {
                 HitTestResult::Hit
@@ -257,11 +292,11 @@ impl RenderObject for GestureDetectorRenderObject {
             HitTestResult::Miss
         }
     }
-    
+
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         // Use local rect (at origin) since event position is in local coordinates
         let local_rect = Rect::from_size(self.state.size);
-        
+
         match event {
             InputEvent::Tap { position } => {
                 if local_rect.contains(*position) {
@@ -274,7 +309,7 @@ impl RenderObject for GestureDetectorRenderObject {
                     return EventResult::Handled;
                 }
             }
-            
+
             InputEvent::LongPress { position } => {
                 if local_rect.contains(*position) {
                     if let Some(id) = self.config.long_press_id.clone() {
@@ -286,18 +321,18 @@ impl RenderObject for GestureDetectorRenderObject {
                     return EventResult::Handled;
                 }
             }
-            
+
             InputEvent::Hover { position, entered } => {
                 if local_rect.contains(*position) {
                     self.is_hovered = *entered;
                     return EventResult::Handled;
                 }
             }
-            
+
             InputEvent::MouseDown { position, .. } => {
                 if local_rect.contains(*position) {
                     self.is_pressed = true;
-                    
+
                     // Emit press event if configured
                     if let Some(id) = self.config.press_id.clone() {
                         return EventResult::Message(UIMessage::Gesture {
@@ -305,7 +340,7 @@ impl RenderObject for GestureDetectorRenderObject {
                             kind: GestureKind::Press,
                         });
                     }
-                    
+
                     // Start pan if configured
                     if let Some(id) = self.config.pan_id.clone() {
                         self.is_panning = true;
@@ -314,11 +349,11 @@ impl RenderObject for GestureDetectorRenderObject {
                             kind: GestureKind::PanStart,
                         });
                     }
-                    
+
                     return EventResult::Handled;
                 }
             }
-            
+
             InputEvent::MouseMove { position, .. } => {
                 // Handle pan update
                 if self.is_panning {
@@ -329,7 +364,7 @@ impl RenderObject for GestureDetectorRenderObject {
                         });
                     }
                 }
-                
+
                 // Update hover state
                 let was_hovered = self.is_hovered;
                 self.is_hovered = local_rect.contains(*position);
@@ -337,7 +372,7 @@ impl RenderObject for GestureDetectorRenderObject {
                     return EventResult::Handled;
                 }
             }
-            
+
             InputEvent::MouseUp { position, .. } => {
                 // End pan if panning
                 if self.is_panning {
@@ -349,7 +384,7 @@ impl RenderObject for GestureDetectorRenderObject {
                         });
                     }
                 }
-                
+
                 // Emit release event if configured and was pressed
                 if self.is_pressed {
                     self.is_pressed = false;
@@ -364,22 +399,40 @@ impl RenderObject for GestureDetectorRenderObject {
                     }
                 }
             }
-            
+
             _ => {}
         }
-        
+
         EventResult::Ignored
     }
-    
+}
+
+impl Lifecycle for GestureDetectorRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for GestureDetectorRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
+}
+
+impl RenderObject for GestureDetectorRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

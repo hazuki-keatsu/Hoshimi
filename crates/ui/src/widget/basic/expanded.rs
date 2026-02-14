@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, Offset, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Expanded widget that expands to fill remaining space
 #[derive(Debug)]
@@ -119,63 +121,118 @@ impl ExpandedRenderObject {
     }
 }
 
-impl RenderObject for ExpandedRenderObject {
-    impl_render_object_common!(state);
-    
-    fn get_flex_data(&self) -> Option<(u32, bool)> {
-        // Expanded always uses tight fit (must fill allocated space)
-        Some((self.flex, true))
-    }
-    
+impl Layoutable for ExpandedRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Expanded fills all available space
         let size = Size::new(constraints.max_width, constraints.max_height);
-        
+
         // Child fills the expanded widget
         let child_constraints = Constraints::tight(size);
         self.child.layout(child_constraints);
         self.child.set_offset(Offset::ZERO);
-        
+
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_min_intrinsic_width(height)
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_max_intrinsic_width(height)
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_min_intrinsic_height(width)
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_max_intrinsic_height(width)
     }
-    
+
+    fn get_flex_data(&self) -> Option<(u32, bool)> {
+        // Expanded always uses tight fit (must fill allocated space)
+        Some((self.flex, true))
+    }
+}
+
+impl Paintable for ExpandedRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for ExpandedRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for ExpandedRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for ExpandedRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
-        self.state.mark_needs_layout();
+}
+
+impl RenderObject for ExpandedRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -316,14 +373,7 @@ impl FlexibleRenderObject {
     }
 }
 
-impl RenderObject for FlexibleRenderObject {
-    impl_render_object_common!(state);
-    
-    fn get_flex_data(&self) -> Option<(u32, bool)> {
-        // Return flex factor and whether it's tight fit
-        Some((self.flex, self.fit == FlexFit::Tight))
-    }
-    
+impl Layoutable for FlexibleRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         let child_constraints = match self.fit {
             FlexFit::Tight => Constraints::tight(Size::new(
@@ -332,54 +382,116 @@ impl RenderObject for FlexibleRenderObject {
             )),
             FlexFit::Loose => constraints.loosen(),
         };
-        
+
         let child_size = self.child.layout(child_constraints);
         self.child.set_offset(Offset::ZERO);
-        
+
         let size = match self.fit {
             FlexFit::Tight => Size::new(constraints.max_width, constraints.max_height),
             FlexFit::Loose => child_size,
         };
-        
+
         self.state.size = constraints.constrain(size);
         self.state.needs_layout = false;
-        
+
         self.state.size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_min_intrinsic_width(height)
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_max_intrinsic_width(height)
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_min_intrinsic_height(width)
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_max_intrinsic_height(width)
     }
-    
+
+    fn get_flex_data(&self) -> Option<(u32, bool)> {
+        // Return flex factor and whether it's tight fit
+        Some((self.flex, self.fit == FlexFit::Tight))
+    }
+}
+
+impl Paintable for FlexibleRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for FlexibleRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for FlexibleRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for FlexibleRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
-        self.state.mark_needs_layout();
+}
+
+impl RenderObject for FlexibleRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

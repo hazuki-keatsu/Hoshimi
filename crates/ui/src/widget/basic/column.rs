@@ -5,14 +5,16 @@
 use std::any::{Any, TypeId};
 
 use hoshimi_types::{
-    Constraints, CrossAxisAlignment, MainAxisAlignment, MainAxisSize, Offset, Size,
+    Constraints, CrossAxisAlignment, MainAxisAlignment, MainAxisSize, Offset, Rect, Size,
 };
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Column widget that arranges children vertically
 #[derive(Debug)]
@@ -199,9 +201,7 @@ impl ColumnRenderObject {
     }
 }
 
-impl RenderObject for ColumnRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for ColumnRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         if self.children.is_empty() {
             let size = match self.main_axis_size {
@@ -212,11 +212,11 @@ impl RenderObject for ColumnRenderObject {
             self.state.needs_layout = false;
             return self.state.size;
         }
-        
+
         // ====================================================================
         // Phase 1: Layout non-flex children and collect flex children info
         // ====================================================================
-        
+
         // Constraints for non-flex children (unbounded on main axis)
         let non_flex_constraints = Constraints::new(
             constraints.min_width,
@@ -224,14 +224,14 @@ impl RenderObject for ColumnRenderObject {
             0.0,
             f32::INFINITY,
         );
-        
+
         // Track child sizes, flex info, and totals
         let mut child_sizes: Vec<Option<Size>> = vec![None; self.children.len()];
         let mut flex_children: Vec<(usize, u32, bool)> = Vec::new(); // (index, flex, is_tight)
         let mut total_flex: u32 = 0;
         let mut allocated_height = 0.0;
         let mut max_width: f32 = 0.0;
-        
+
         for (i, child) in self.children.iter_mut().enumerate() {
             if let Some((flex, is_tight)) = child.get_flex_data() {
                 // This is a flex child, defer layout
@@ -245,16 +245,16 @@ impl RenderObject for ColumnRenderObject {
                 max_width = max_width.max(size.width);
             }
         }
-        
+
         // Add spacing to allocated height
         if !self.children.is_empty() {
             allocated_height += self.spacing * (self.children.len() - 1) as f32;
         }
-        
+
         // ====================================================================
         // Phase 2: Distribute remaining space to flex children
         // ====================================================================
-        
+
         let available_height = constraints.max_height;
         let remaining_height = (available_height - allocated_height).max(0.0);
         let space_per_flex = if total_flex > 0 {
@@ -262,11 +262,11 @@ impl RenderObject for ColumnRenderObject {
         } else {
             0.0
         };
-        
+
         for (index, flex, is_tight) in &flex_children {
             let child = &mut self.children[*index];
             let child_main_size = space_per_flex * (*flex as f32);
-            
+
             // Create constraints based on fit type
             let child_constraints = if *is_tight {
                 // Tight: child must fill allocated space
@@ -285,36 +285,36 @@ impl RenderObject for ColumnRenderObject {
                     child_main_size,
                 )
             };
-            
+
             let size = child.layout(child_constraints);
             child_sizes[*index] = Some(size);
             max_width = max_width.max(size.width);
         }
-        
+
         // ====================================================================
         // Phase 3: Calculate final size and position children
         // ====================================================================
-        
+
         // Calculate total height from all children
         let total_children_height: f32 = child_sizes.iter()
             .filter_map(|s| s.as_ref())
             .map(|s| s.height)
             .sum();
         let total_height = total_children_height + self.spacing * (self.children.len() - 1).max(0) as f32;
-        
+
         // Determine final size
         let final_width = match self.cross_axis_alignment {
             CrossAxisAlignment::Stretch => constraints.max_width,
             _ => max_width,
         };
-        
+
         let final_height = match self.main_axis_size {
             MainAxisSize::Min => total_height,
             MainAxisSize::Max => constraints.max_height,
         };
-        
+
         let size = constraints.constrain(Size::new(final_width, final_height));
-        
+
         // Calculate spacing for main axis alignment
         let extra_space = (size.height - total_height).max(0.0);
         let (start_offset, between_space) = match self.main_axis_alignment {
@@ -337,29 +337,53 @@ impl RenderObject for ColumnRenderObject {
                 (space, space)
             }
         };
-        
+
         // Position children
         let mut y = start_offset;
         for (i, child) in self.children.iter_mut().enumerate() {
             let child_size = child_sizes[i].unwrap_or(Size::zero());
-            
+
             let x = match self.cross_axis_alignment {
                 CrossAxisAlignment::Start => 0.0,
                 CrossAxisAlignment::End => size.width - child_size.width,
                 CrossAxisAlignment::Center => (size.width - child_size.width) / 2.0,
                 CrossAxisAlignment::Stretch => 0.0,
             };
-            
+
             child.set_offset(Offset::new(x, y));
             y += child_size.height + self.spacing + between_space;
         }
-        
+
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, _height: f32) -> f32 {
         // Column: min width is max of children's min widths
         let mut max_width: f32 = 0.0;
@@ -368,7 +392,7 @@ impl RenderObject for ColumnRenderObject {
         }
         max_width
     }
-    
+
     fn get_max_intrinsic_width(&self, _height: f32) -> f32 {
         // Column: max width is max of children's max widths
         let mut max_width: f32 = 0.0;
@@ -377,7 +401,7 @@ impl RenderObject for ColumnRenderObject {
         }
         max_width
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         // Column: min height is sum of children's min heights + spacing
         let mut total_height: f32 = 0.0;
@@ -389,7 +413,7 @@ impl RenderObject for ColumnRenderObject {
         }
         total_height
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         // Column: max height is sum of children's max heights + spacing
         let mut total_height: f32 = 0.0;
@@ -401,42 +425,90 @@ impl RenderObject for ColumnRenderObject {
         }
         total_height
     }
-    
+}
+
+impl Paintable for ColumnRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
-        
+
         for child in &self.children {
             child.paint(painter);
         }
-        
+
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for ColumnRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        for child in &mut self.children {
+            let result = child.handle_event(event);
+            if result != EventResult::Ignored {
+                return result;
+            }
+        }
+        EventResult::Ignored
+    }
+}
+
+impl Lifecycle for ColumnRenderObject {
+    fn on_mount(&mut self) {
+        for child in &mut self.children {
+            child.on_mount();
+        }
+    }
+
+    fn on_unmount(&mut self) {
+        for child in &mut self.children {
+            child.on_unmount();
+        }
+    }
+}
+
+impl Parent for ColumnRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         self.children.iter().map(|c| c.as_ref()).collect()
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         self.children.iter_mut().map(|c| c.as_mut()).collect()
     }
-    
+
     fn add_child(&mut self, child: Box<dyn RenderObject>) {
         self.children.push(child);
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
     }
-    
+
     fn remove_child(&mut self, index: usize) -> Option<Box<dyn RenderObject>> {
         if index < self.children.len() {
-            self.state.mark_needs_layout();
+            self.state.needs_layout = true;
             Some(self.children.remove(index))
         } else {
             None
         }
     }
-    
+
     fn insert_child(&mut self, index: usize, child: Box<dyn RenderObject>) {
         self.children.insert(index.min(self.children.len()), child);
-        self.state.mark_needs_layout();
+        self.state.needs_layout = true;
+    }
+}
+
+impl RenderObject for ColumnRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

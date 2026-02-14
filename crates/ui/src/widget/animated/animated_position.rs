@@ -4,13 +4,16 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Offset, Rect, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
-use crate::events::{HitTestResult};
+use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{Animatable, RenderObject, RenderObjectState};
+use crate::render_object::{
+    Animatable, EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject,
+    RenderObjectState,
+};
 use crate::widget::Widget;
 
 /// A widget that animates the position of its child
@@ -177,10 +180,13 @@ impl Animatable for AnimatedPositionRenderObject {
     }
 }
 
-impl RenderObject for AnimatedPositionRenderObject {
-    crate::impl_single_child_layout!(state, child);
-    crate::impl_animated_tick!(state, child);
-    crate::impl_single_child_render_object!(child);
+impl Layoutable for AnimatedPositionRenderObject {
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        let child_size = self.child.layout(constraints);
+        self.child.set_offset(Offset::ZERO);
+        self.state.size = child_size;
+        child_size
+    }
 
     // Custom get_rect to include animated position offset
     fn get_rect(&self) -> Rect {
@@ -204,6 +210,16 @@ impl RenderObject for AnimatedPositionRenderObject {
         self.state.size
     }
 
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for AnimatedPositionRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         // First translate to own position, then apply animated position offset
@@ -213,6 +229,16 @@ impl RenderObject for AnimatedPositionRenderObject {
         painter.restore();
     }
 
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for AnimatedPositionRenderObject {
     fn hit_test(&self, position: Offset) -> HitTestResult {
         let local = Offset::new(
             position.x - self.state.offset.x - self.current_position.x,
@@ -221,27 +247,50 @@ impl RenderObject for AnimatedPositionRenderObject {
         self.child.hit_test(local)
     }
 
-    fn needs_layout(&self) -> bool {
-        self.state.needs_layout
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for AnimatedPositionRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
     }
 
-    fn mark_needs_layout(&mut self) {
-        self.state.needs_layout = true;
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for AnimatedPositionRenderObject {
+    fn children(&self) -> Vec<&dyn RenderObject> {
+        vec![self.child.as_ref()]
     }
 
-    fn needs_paint(&self) -> bool {
-        self.state.needs_paint
+    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
+        vec![self.child.as_mut()]
     }
+}
 
-    fn mark_needs_paint(&mut self) {
-        self.state.needs_paint = true;
-    }
-
+impl RenderObject for AnimatedPositionRenderObject {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn tick(&mut self, delta: f32) -> bool {
+        Animatable::update(self, delta);
+        let self_animating = Animatable::is_animating(self);
+
+        let child_animating = self.child.tick(delta);
+
+        if self_animating {
+            self.state.needs_paint = true;
+        }
+
+        self_animating || child_animating
     }
 }

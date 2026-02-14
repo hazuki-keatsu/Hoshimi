@@ -4,13 +4,16 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Offset, Rect, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{Animatable, RenderObject, RenderObjectState};
+use crate::render_object::{
+    Animatable, EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject,
+    RenderObjectState,
+};
 use crate::widget::Widget;
 
 /// Direction for slide transitions
@@ -258,23 +261,21 @@ impl Animatable for SlideTransitionRenderObject {
     }
 }
 
-impl RenderObject for SlideTransitionRenderObject {
+impl Layoutable for SlideTransitionRenderObject {
     // Custom layout to start animation after first layout
-    fn layout(&mut self, constraints: hoshimi_types::Constraints) -> hoshimi_types::Size {
+    fn layout(&mut self, constraints: Constraints) -> Size {
         let child_size = self.child.layout(constraints);
-        self.child.set_offset(hoshimi_types::Offset::ZERO);
+        self.child.set_offset(Offset::ZERO);
         self.state.size = child_size;
-        
+
         // Start entrance animation after first layout when size is known
         if self.needs_entrance_animation && child_size.width > 0.0 && child_size.height > 0.0 {
             self.needs_entrance_animation = false;
             self.start_animation();
         }
-        
+
         child_size
     }
-    
-    crate::impl_animated_tick!(state, child);
 
     // Custom get_rect to include slide offset
     fn get_rect(&self) -> Rect {
@@ -299,6 +300,16 @@ impl RenderObject for SlideTransitionRenderObject {
         self.state.size
     }
 
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for SlideTransitionRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         if self.slide_progress >= 1.0 {
             return;
@@ -313,12 +324,22 @@ impl RenderObject for SlideTransitionRenderObject {
         painter.restore();
     }
 
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for SlideTransitionRenderObject {
     fn hit_test(&self, position: Offset) -> HitTestResult {
         // Only accept hits when fully visible
         if self.slide_progress > 0.0 {
             return HitTestResult::Miss;
         }
-        
+
         let local = Offset::new(
             position.x - self.state.offset.x,
             position.y - self.state.offset.y,
@@ -326,14 +347,15 @@ impl RenderObject for SlideTransitionRenderObject {
         self.child.hit_test(local)
     }
 
-    // Custom handle_event: ignore events when not fully visible
     fn handle_event(&mut self, event: &InputEvent) -> EventResult {
         if self.slide_progress > 0.0 {
             return EventResult::Ignored;
         }
         self.child.handle_event(event)
     }
+}
 
+impl Lifecycle for SlideTransitionRenderObject {
     fn on_mount(&mut self) {
         self.child.on_mount();
         // Note: entrance animation is started in layout() after size is known
@@ -342,7 +364,9 @@ impl RenderObject for SlideTransitionRenderObject {
     fn on_unmount(&mut self) {
         self.child.on_unmount();
     }
+}
 
+impl Parent for SlideTransitionRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
@@ -350,28 +374,27 @@ impl RenderObject for SlideTransitionRenderObject {
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
+}
 
-    fn needs_layout(&self) -> bool {
-        self.state.needs_layout
-    }
-
-    fn mark_needs_layout(&mut self) {
-        self.state.needs_layout = true;
-    }
-
-    fn needs_paint(&self) -> bool {
-        self.state.needs_paint
-    }
-
-    fn mark_needs_paint(&mut self) {
-        self.state.needs_paint = true;
-    }
-
+impl RenderObject for SlideTransitionRenderObject {
     fn as_any(&self) -> &dyn Any {
         self
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn tick(&mut self, delta: f32) -> bool {
+        Animatable::update(self, delta);
+        let self_animating = Animatable::is_animating(self);
+
+        let child_animating = self.child.tick(delta);
+
+        if self_animating {
+            self.state.needs_paint = true;
+        }
+
+        self_animating || child_animating
     }
 }

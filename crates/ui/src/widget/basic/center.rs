@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, Offset, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Center widget that centers its child
 #[derive(Debug)]
@@ -134,73 +136,128 @@ impl CenterRenderObject {
     }
 }
 
-impl RenderObject for CenterRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for CenterRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Let child be as small as it wants
         let child_constraints = constraints.loosen();
         let child_size = self.child.layout(child_constraints);
-        
+
         // Determine our size
         let width = match self.width_factor {
             Some(factor) => child_size.width * factor,
             None => constraints.max_width,
         };
-        
+
         let height = match self.height_factor {
             Some(factor) => child_size.height * factor,
             None => constraints.max_height,
         };
-        
+
         let size = constraints.constrain(Size::new(width, height));
-        
+
         // Center the child
         let offset = Offset::new(
             (size.width - child_size.width) / 2.0,
             (size.height - child_size.height) / 2.0,
         );
         self.child.set_offset(offset);
-        
+
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+
     fn get_min_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_min_intrinsic_width(height)
     }
-    
+
     fn get_max_intrinsic_width(&self, height: f32) -> f32 {
         self.child.get_max_intrinsic_width(height)
     }
-    
+
     fn get_min_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_min_intrinsic_height(width)
     }
-    
+
     fn get_max_intrinsic_height(&self, width: f32) -> f32 {
         self.child.get_max_intrinsic_height(width)
     }
-    
+}
+
+impl Paintable for CenterRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for CenterRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for CenterRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for CenterRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
-        self.state.mark_needs_layout();
+}
+
+impl RenderObject for CenterRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

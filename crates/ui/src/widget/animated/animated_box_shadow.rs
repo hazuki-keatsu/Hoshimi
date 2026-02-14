@@ -7,13 +7,16 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{BoxShadow, Color, Offset, Rect};
+use hoshimi_types::{BoxShadow, Color, Constraints, Offset, Rect, Size};
 
 use crate::animation::{AnimationController, Curve, Tween};
-use crate::events::HitTestResult;
+use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{Animatable, RenderObject, RenderObjectState};
+use crate::render_object::{
+    Animatable, EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject,
+    RenderObjectState,
+};
 use crate::widget::Widget;
 
 /// A widget that animates box shadow changes
@@ -197,12 +200,40 @@ impl Animatable for AnimatedBoxShadowRenderObject {
     }
 }
 
-impl RenderObject for AnimatedBoxShadowRenderObject {
-    crate::impl_single_child_layout!(state, child);
-    crate::impl_animated_tick!(state, child);
-    crate::impl_render_object_common!(state);
-    crate::impl_single_child_render_object!(child);
+impl Layoutable for AnimatedBoxShadowRenderObject {
+    fn layout(&mut self, constraints: Constraints) -> Size {
+        let child_size = self.child.layout(constraints);
+        self.child.set_offset(Offset::ZERO);
+        self.state.size = child_size;
+        child_size
+    }
 
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for AnimatedBoxShadowRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
@@ -227,11 +258,72 @@ impl RenderObject for AnimatedBoxShadowRenderObject {
         painter.restore();
     }
 
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for AnimatedBoxShadowRenderObject {
     fn hit_test(&self, position: Offset) -> HitTestResult {
         let local = Offset::new(
             position.x - self.state.offset.x,
             position.y - self.state.offset.y,
         );
         self.child.hit_test(local)
+    }
+
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for AnimatedBoxShadowRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for AnimatedBoxShadowRenderObject {
+    fn children(&self) -> Vec<&dyn RenderObject> {
+        vec![self.child.as_ref()]
+    }
+
+    fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
+        vec![self.child.as_mut()]
+    }
+}
+
+impl RenderObject for AnimatedBoxShadowRenderObject {
+    fn tick(&mut self, delta: f32) -> bool {
+        Animatable::update(self, delta);
+        let self_animating = Animatable::is_animating(self);
+
+        let child_animating = self.child.tick(delta);
+
+        if self_animating {
+            self.state.mark_needs_paint();
+        }
+
+        self_animating || child_animating
+    }
+
+    fn is_dynamic(&self) -> bool {
+        self.controller.is_some()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }

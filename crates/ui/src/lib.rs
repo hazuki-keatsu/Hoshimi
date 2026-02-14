@@ -69,6 +69,7 @@ pub mod render_object;
 pub mod tree;
 pub mod widget;
 pub mod router;
+pub mod state;
 
 // Re-export commonly used items
 pub use animation::{AnimationController, AnimationStatus, Curve, Interpolate, RepeatMode, Tween};
@@ -80,6 +81,7 @@ pub use render_object::{RenderObject, RenderObjectState};
 pub use tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
 pub use widget::Widget;
 pub use router::{Router, Page, PageParams, TransitionType, NavigationResult};
+pub use state::{StatefulWidget, StatelessWidget, WidgetState};
 
 // Re-export types
 pub use hoshimi_types::*;
@@ -99,6 +101,7 @@ pub mod prelude {
     pub use crate::key::{WidgetIdentity, WidgetKey};
     pub use crate::painter::{Painter, TextMeasurer};
     pub use crate::render_object::{RenderObject, RenderObjectState};
+    pub use crate::state::{StatefulWidget, StatelessWidget, WidgetState};
     pub use crate::tree::{UiTree, DiffOperation, DiffResult, WidgetDiffer, Reconciler, ReconcileResult};
     pub use crate::widget::Widget;
 

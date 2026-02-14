@@ -4,13 +4,15 @@
 
 use std::any::{Any, TypeId};
 
-use hoshimi_types::{Constraints, Offset, Size};
+use hoshimi_types::{Constraints, Offset, Rect, Size};
 
+use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
 use crate::painter::Painter;
-use crate::render_object::{RenderObject, RenderObjectState};
+use crate::render_object::{
+    EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
+};
 use crate::widget::Widget;
-use crate::impl_render_object_common;
 
 /// Positioned widget that positions its child relative to a Stack
 #[derive(Debug)]
@@ -236,15 +238,13 @@ impl PositionedRenderObject {
     }
 }
 
-impl RenderObject for PositionedRenderObject {
-    impl_render_object_common!(state);
-    
+impl Layoutable for PositionedRenderObject {
     fn layout(&mut self, constraints: Constraints) -> Size {
         // Calculate child constraints based on position
         let child_constraints = self.compute_child_constraints(constraints);
-        
+
         let child_size = self.child.layout(child_constraints);
-        
+
         // Calculate position
         let x = if let Some(left) = self.left {
             left
@@ -253,7 +253,7 @@ impl RenderObject for PositionedRenderObject {
         } else {
             0.0
         };
-        
+
         let y = if let Some(top) = self.top {
             top
         } else if let Some(bottom) = self.bottom {
@@ -261,47 +261,104 @@ impl RenderObject for PositionedRenderObject {
         } else {
             0.0
         };
-        
+
         self.child.set_offset(Offset::new(x, y));
-        
+
         // The positioned widget's size is determined by its position within the parent
         let width = if let (Some(left), Some(right)) = (self.left, self.right) {
             constraints.max_width - left - right
         } else {
             self.width.unwrap_or(child_size.width)
         };
-        
+
         let height = if let (Some(top), Some(bottom)) = (self.top, self.bottom) {
             constraints.max_height - top - bottom
         } else {
             self.height.unwrap_or(child_size.height)
         };
-        
+
         let size = Size::new(width, height);
         self.state.size = size;
         self.state.needs_layout = false;
-        
+
         size
     }
-    
+
+    fn get_rect(&self) -> Rect {
+        self.state.get_rect()
+    }
+
+    fn set_offset(&mut self, offset: Offset) {
+        self.state.offset = offset;
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.state.offset
+    }
+
+    fn get_size(&self) -> Size {
+        self.state.size
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.state.needs_layout
+    }
+
+    fn mark_needs_layout(&mut self) {
+        self.state.needs_layout = true;
+    }
+}
+
+impl Paintable for PositionedRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         painter.save();
         painter.translate(self.state.offset);
         self.child.paint(painter);
         painter.restore();
     }
-    
+
+    fn needs_paint(&self) -> bool {
+        self.state.needs_paint
+    }
+
+    fn mark_needs_paint(&mut self) {
+        self.state.needs_paint = true;
+    }
+}
+
+impl EventHandlable for PositionedRenderObject {
+    fn handle_event(&mut self, event: &InputEvent) -> EventResult {
+        self.child.handle_event(event)
+    }
+}
+
+impl Lifecycle for PositionedRenderObject {
+    fn on_mount(&mut self) {
+        self.child.on_mount();
+    }
+
+    fn on_unmount(&mut self) {
+        self.child.on_unmount();
+    }
+}
+
+impl Parent for PositionedRenderObject {
     fn children(&self) -> Vec<&dyn RenderObject> {
         vec![self.child.as_ref()]
     }
-    
+
     fn children_mut(&mut self) -> Vec<&mut dyn RenderObject> {
         vec![self.child.as_mut()]
     }
-    
-    fn add_child(&mut self, child: Box<dyn RenderObject>) {
-        self.child = child;
-        self.state.mark_needs_layout();
+}
+
+impl RenderObject for PositionedRenderObject {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
