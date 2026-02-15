@@ -7,11 +7,11 @@
 //! - Handling messages directly in the page
 //! - Using ElevatedButton, OutlinedButton, and TextButton
 
-use hoshimi_ui::types::TextAlign;
+use hoshimi_ui::events::{GestureKind, UIMessage};
 use hoshimi_ui::impl_page_common;
 use hoshimi_ui::prelude::*;
-use hoshimi_ui::widget::{ElevatedButton, OutlinedButton, TextButton, ButtonStyle};
-use hoshimi_ui::events::{GestureKind, UIMessage};
+use hoshimi_ui::types::TextAlign;
+use hoshimi_ui::widget::{ButtonStyle, ElevatedButton, OutlinedButton, TextButton};
 use std::cell::Cell;
 
 /// A simple counter page with state management
@@ -92,6 +92,20 @@ impl Page for CounterPage {
                         )
                         .child(SizedBox::from_height(20.0))
                         .child(
+                            Container::new()
+                                .child(
+                                    SizedBox::from_width(100.0).with_child(
+                                        Text::new("Test Overflow")
+                                            .with_overflow(TextOverflow::Ellipsis),
+                                    ),
+                                )
+                                .with_decoration(BoxDecoration {
+                                    color: Some(Color::cyan()),
+                                    ..Default::default()
+                                }),
+                        )
+                        .child(SizedBox::from_height(20.0))
+                        .child(
                             Text::new(&format!("Count: {}", self.count))
                                 .with_align(TextAlign::Center)
                                 .with_style(TextStyle {
@@ -114,12 +128,12 @@ impl Page for CounterPage {
                                             ButtonStyle::elevated()
                                                 .background_color(
                                                     hoshimi_ui::widget::ButtonColorProperty::all(
-                                                        Color::from_hex(0x1565C0)
-                                                    )
+                                                        Color::from_hex(0x1565C0),
+                                                    ),
                                                 )
                                                 .border_radius(BorderRadius::all(16.0))
-                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
-                                        )
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0)),
+                                        ),
                                 )
                                 .child(SizedBox::from_width(20.0))
                                 .child(
@@ -129,12 +143,12 @@ impl Page for CounterPage {
                                             ButtonStyle::outlined()
                                                 .foreground_color(
                                                     hoshimi_ui::widget::ButtonColorProperty::all(
-                                                        Color::from_hex(0x2E7D32)
-                                                    )
+                                                        Color::from_hex(0x2E7D32),
+                                                    ),
                                                 )
                                                 .border_radius(BorderRadius::all(16.0))
-                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
-                                        )
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0)),
+                                        ),
                                 )
                                 .child(SizedBox::from_width(20.0))
                                 .child(
@@ -144,12 +158,12 @@ impl Page for CounterPage {
                                             ButtonStyle::elevated()
                                                 .background_color(
                                                     hoshimi_ui::widget::ButtonColorProperty::all(
-                                                        Color::from_hex(0xD84315)
-                                                    )
+                                                        Color::from_hex(0xD84315),
+                                                    ),
                                                 )
                                                 .border_radius(BorderRadius::all(16.0))
-                                                .padding(EdgeInsets::symmetric(32.0, 64.0))
-                                        )
+                                                .padding(EdgeInsets::symmetric(32.0, 64.0)),
+                                        ),
                                 )
                                 .with_main_axis_alignment(MainAxisAlignment::Center),
                         )
@@ -161,11 +175,11 @@ impl Page for CounterPage {
                                     ButtonStyle::text()
                                         .foreground_color(
                                             hoshimi_ui::widget::ButtonColorProperty::all(
-                                                Color::from_hex(0x6A1B9A)
-                                            )
+                                                Color::from_hex(0x6A1B9A),
+                                            ),
                                         )
-                                        .padding(EdgeInsets::symmetric(32.0, 64.0))
-                                )
+                                        .padding(EdgeInsets::symmetric(32.0, 64.0)),
+                                ),
                         )
                         .with_main_axis_alignment(MainAxisAlignment::Center)
                         .with_cross_axis_alignment(CrossAxisAlignment::Center),
@@ -183,23 +197,24 @@ impl Page for CounterPage {
 
     fn handle_message(&mut self, message: &UIMessage) -> bool {
         match message {
-            UIMessage::Gesture { id, kind: GestureKind::Tap } => {
-                match id.as_str() {
-                    "btn_increment" => {
-                        self.increment();
-                        true
-                    }
-                    "btn_decrement" => {
-                        self.decrement();
-                        true
-                    }
-                    "btn_reset" => {
-                        self.reset();
-                        true
-                    }
-                    _ => false,
+            UIMessage::Gesture {
+                id,
+                kind: GestureKind::Tap,
+            } => match id.as_str() {
+                "btn_increment" => {
+                    self.increment();
+                    true
                 }
-            }
+                "btn_decrement" => {
+                    self.decrement();
+                    true
+                }
+                "btn_reset" => {
+                    self.reset();
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         }
     }

@@ -176,6 +176,41 @@ impl TextRenderObject {
             cached_size: None,
         }
     }
+    
+    /// Truncate text to fit within a given width using binary search
+    fn truncate_text_to_width(
+        &self,
+        text: &str,
+        max_width: f32,
+        painter: &dyn Painter,
+    ) -> String {
+        let chars: Vec<char> = text.chars().collect();
+        if chars.is_empty() {
+            return String::new();
+        }
+        
+        // Binary search for the maximum number of characters that fit
+        let mut left = 0;
+        let mut right = chars.len();
+        
+        while left < right {
+            let mid = left + (right - left + 1) / 2;
+            let substring: String = chars[..mid].iter().collect();
+            let size = painter.measure_text(&substring, &self.style);
+            
+            if size.width <= max_width {
+                left = mid;
+            } else {
+                right = mid - 1;
+            }
+        }
+        
+        if left == 0 {
+            String::new()
+        } else {
+            chars[..left].iter().collect()
+        }
+    }
 }
 
 impl Layoutable for TextRenderObject {
@@ -235,9 +270,56 @@ impl Layoutable for TextRenderObject {
 impl Paintable for TextRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         let rect = self.state.get_rect();
-        painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+        
+        // Handle overflow based on the overflow mode
+        match self.overflow {
+            TextOverflow::Clip => {
+                // Clip mode: save state, clip to rect, draw text, restore
+                painter.save();
+                painter.clip_rect(rect);
+                painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+                painter.restore();
+            }
+            TextOverflow::Ellipsis => {
+                // Ellipsis mode: truncate text with "..." if it overflows
+                let text_size = painter.measure_text(&self.content, &self.style);
+                let available_width = rect.width;
+                
+                if text_size.width <= available_width {
+                    // Text fits, draw normally
+                    painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+                } else {
+                    // Text overflows, need to truncate with ellipsis
+                    let ellipsis = "...";
+                    let ellipsis_size = painter.measure_text(ellipsis, &self.style);
+                    let target_width = available_width - ellipsis_size.width;
+                    
+                    if target_width > 0.0 {
+                        // Binary search for the truncation point
+                        let truncated = self.truncate_text_to_width(
+                            &self.content,
+                            target_width,
+                            painter,
+                        );
+                        let final_text = format!("{}{}", truncated, ellipsis);
+                        painter.draw_text_aligned(&final_text, rect, &self.style, self.align);
+                    } else {
+                        // Even ellipsis doesn't fit, just draw ellipsis
+                        painter.draw_text_aligned(ellipsis, rect, &self.style, self.align);
+                    }
+                }
+            }
+            TextOverflow::Fade => {
+                // Fade mode: use clip for now (fade requires gradient support)
+                // TODO: Implement proper fade effect with gradient
+                painter.save();
+                painter.clip_rect(rect);
+                painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+                painter.restore();
+            }
+        }
     }
-
+    
     fn needs_paint(&self) -> bool {
         self.state.needs_paint
     }
