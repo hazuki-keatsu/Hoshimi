@@ -7,7 +7,7 @@ use hoshimi_types::{
     BorderRadius, Color, EdgeInsets, Offset, Rect, Size, TextStyle,
 };
 
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 
 /// Adapter that wraps SkiaRenderer to implement the Painter trait
 pub struct SkiaRendererPainter<'a> {
@@ -42,6 +42,27 @@ impl<'a> Painter for SkiaRendererPainter<'a> {
         // Use uniform radius if all corners are the same, otherwise use first corner
         let r = radius.uniform_radius().unwrap_or(radius.top_left);
         self.renderer.clip_rounded_rect(rect, r);
+    }
+    
+    fn save_layer_gradient_alpha(
+        &mut self,
+        rect: Rect,
+        start_alpha: f32,
+        end_alpha: f32,
+    ) {
+        self.renderer.save_layer_gradient_alpha(rect, start_alpha, end_alpha);
+    }
+    
+    fn save_layer_alpha(&mut self, rect: Rect, alpha: f32) {
+        self.renderer.save_layer_alpha(rect, alpha);
+    }
+    
+    fn apply_gradient_alpha_mask(&mut self, rect: Rect, start_alpha: f32, end_alpha: f32) {
+        self.renderer.apply_gradient_alpha_mask(rect, start_alpha, end_alpha);
+    }
+    
+    fn draw_fade_mask(&mut self, rect: Rect, fade_to_right: bool) {
+        self.renderer.draw_fade_mask(rect, fade_to_right);
     }
     
     // ========================================================================
@@ -190,9 +211,15 @@ impl<'a> Painter for SkiaRendererPainter<'a> {
     }
     
     // ========================================================================
-    // Measurement
+    // Utility
     // ========================================================================
     
+    fn canvas_size(&self) -> Size {
+        self.renderer.size()
+    }
+}
+
+impl<'a> TextMeasurer for SkiaRendererPainter<'a> {
     fn measure_text(&self, text: &str, style: &TextStyle) -> Size {
         if let Some(ref font_family) = style.font_family {
             if let Ok(size) = self.renderer.measure_text_with_font_key(text, font_family, style.font_size) {
@@ -203,16 +230,21 @@ impl<'a> Painter for SkiaRendererPainter<'a> {
         self.renderer.measure_text(text, style.font_size)
     }
     
+    fn get_text_bounds_left(&self, text: &str, style: &TextStyle) -> f32 {
+        if let Some(ref font_family) = style.font_family {
+            if let Ok(left) = self.renderer.get_text_bounds_left_with_font_key(text, font_family, style.font_size) {
+                return left;
+            }
+        }
+        
+        self.renderer.get_text_bounds_left(text, style.font_size)
+    }
+    
     fn line_height(&self, style: &TextStyle) -> f32 {
-        // Approximate line height as 1.2x font size
-        // TODO: Get accurate line height from font metrics
         style.line_height.unwrap_or(style.font_size * 1.2)
     }
     
     fn measure_char_positions(&self, text: &str, style: &TextStyle) -> Vec<f32> {
-        // Calculate character positions
-        // This is a simple implementation that assumes monospace-like behavior
-        // TODO: Implement proper character position measurement
         let mut positions = Vec::with_capacity(text.chars().count() + 1);
         let mut current_x = 0.0;
         positions.push(current_x);
@@ -225,13 +257,5 @@ impl<'a> Painter for SkiaRendererPainter<'a> {
         }
         
         positions
-    }
-    
-    // ========================================================================
-    // Utility
-    // ========================================================================
-    
-    fn canvas_size(&self) -> Size {
-        self.renderer.size()
     }
 }

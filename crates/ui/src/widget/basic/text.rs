@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size, TextAlign, TextOverflow, Te
 
 
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -214,27 +214,12 @@ impl TextRenderObject {
 }
 
 impl Layoutable for TextRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
-        // Calculate text width with better heuristics for different character types
-        // CJK characters are approximately square (width ≈ font_size)
-        // Latin characters are narrower (width ≈ font_size * 0.5)
-        let mut approx_width = 0.0;
-        for ch in self.content.chars() {
-            if is_cjk_char(ch) {
-                // CJK characters are roughly square
-                approx_width += self.style.font_size;
-            } else if ch.is_ascii() {
-                // ASCII characters are narrower
-                approx_width += self.style.font_size * 0.5;
-            } else {
-                // Other Unicode characters (emoji, etc.) - assume wider
-                approx_width += self.style.font_size * 0.8;
-            }
-        }
-
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
+        // Use actual text measurement instead of approximation
+        let text_size = text_measurer.measure_text(&self.content, &self.style);
         let line_height = self.style.line_height.unwrap_or(self.style.font_size * 1.2);
 
-        let size = constraints.constrain(Size::new(approx_width, line_height));
+        let size = constraints.constrain(Size::new(text_size.width, line_height));
         self.state.size = size;
         self.state.needs_layout = false;
         self.cached_size = Some(size);
@@ -270,26 +255,29 @@ impl Layoutable for TextRenderObject {
 impl Paintable for TextRenderObject {
     fn paint(&self, painter: &mut dyn Painter) {
         let rect = self.state.get_rect();
+        let text_size = painter.measure_text(&self.content, &self.style);
+        let available_width = rect.width;
         
         // Handle overflow based on the overflow mode
         match self.overflow {
             TextOverflow::Clip => {
                 // Clip mode: save state, clip to rect, draw text, restore
-                painter.save();
-                painter.clip_rect(rect);
-                painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
-                painter.restore();
+                if text_size.width <= available_width {
+                    painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+                } else {
+                    painter.save();
+                    painter.clip_rect(rect);
+                    painter.draw_text_aligned(&self.content, rect, &self.style, TextAlign::Left);
+                    painter.restore();
+                }                
             }
             TextOverflow::Ellipsis => {
                 // Ellipsis mode: truncate text with "..." if it overflows
-                let text_size = painter.measure_text(&self.content, &self.style);
-                let available_width = rect.width;
-                
                 if text_size.width <= available_width {
-                    // Text fits, draw normally
+                    // Text fits, use user-specified alignment
                     painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
                 } else {
-                    // Text overflows, need to truncate with ellipsis
+                    // Text overflows, force left alignment and truncate with ellipsis
                     let ellipsis = "...";
                     let ellipsis_size = painter.measure_text(ellipsis, &self.style);
                     let target_width = available_width - ellipsis_size.width;
@@ -302,20 +290,50 @@ impl Paintable for TextRenderObject {
                             painter,
                         );
                         let final_text = format!("{}{}", truncated, ellipsis);
-                        painter.draw_text_aligned(&final_text, rect, &self.style, self.align);
+                        // Force left alignment for overflow
+                        painter.draw_text_aligned(&final_text, rect, &self.style, TextAlign::Left);
                     } else {
                         // Even ellipsis doesn't fit, just draw ellipsis
-                        painter.draw_text_aligned(ellipsis, rect, &self.style, self.align);
+                        painter.draw_text_aligned(ellipsis, rect, &self.style, TextAlign::Left);
                     }
                 }
             }
             TextOverflow::Fade => {
-                // Fade mode: use clip for now (fade requires gradient support)
-                // TODO: Implement proper fade effect with gradient
-                painter.save();
-                painter.clip_rect(rect);
-                painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
-                painter.restore();
+                // Fade mode: text fades out at the right edge when overflowing                
+                if text_size.width <= available_width {
+                    // Text fits, use user-specified alignment
+                    painter.draw_text_aligned(&self.content, rect, &self.style, self.align);
+                } else {
+                    // Text overflows, force left alignment and apply fade effect
+                    // Calculate fade region (last 20% of the container width, or at least 2 characters width)
+                    let fade_width = (available_width * 0.2).max(self.style.font_size * 1.5).min(available_width * 0.5);
+                    
+                    // Use layer approach for proper fade effect:
+                    // 1. Save a layer to isolate the text
+                    // 2. Draw text in the layer (forced left alignment)
+                    // 3. Draw a gradient on top using DstIn to modulate the layer's alpha
+                    // 4. Restore the layer
+                    
+                    painter.save();
+                    painter.clip_rect(rect);
+                    
+                    // Create a layer to isolate the text
+                    painter.save_layer_alpha(rect, 1.0);
+                    
+                    // Draw the text with forced left alignment
+                    painter.draw_text_aligned(&self.content, rect, &self.style, TextAlign::Left);
+                    
+                    // Draw gradient on top to modulate alpha
+                    // DstIn: result = dst * src_alpha
+                    // We want: left side (src_alpha=1) keeps text, right side (src_alpha=0) fades out
+                    let fade_rect = Rect::new(rect.x + available_width - fade_width, rect.y, fade_width, rect.height);
+                    painter.apply_gradient_alpha_mask(fade_rect, 1.0, 0.0);
+                    
+                    // Restore the layer (text with modulated alpha is drawn to screen)
+                    painter.restore();
+                    
+                    painter.restore();
+                }
             }
         }
     }

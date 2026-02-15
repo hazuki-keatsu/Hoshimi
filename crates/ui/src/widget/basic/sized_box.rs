@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -191,7 +191,7 @@ impl SizedBoxRenderObject {
 }
 
 impl Layoutable for SizedBoxRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         // Create constraints for the child
         let child_constraints = Constraints::new(
             self.width.unwrap_or(0.0),
@@ -202,7 +202,7 @@ impl Layoutable for SizedBoxRenderObject {
 
         // Layout child if present
         let child_size = if let Some(child) = &mut self.child {
-            child.layout(child_constraints);
+            child.layout(child_constraints, text_measurer);
             child.set_offset(Offset::ZERO);
             child.get_size()
         } else {

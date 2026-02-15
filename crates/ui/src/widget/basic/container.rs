@@ -10,7 +10,7 @@ use hoshimi_types::{
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -260,7 +260,7 @@ impl ContainerRenderObject {
 }
 
 impl Layoutable for ContainerRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let margin_size = self.margin.total_size();
         let padding_size = self.padding.total_size();
 
@@ -269,7 +269,7 @@ impl Layoutable for ContainerRenderObject {
 
         // Layout child if present
         let child_size = if let Some(ref mut child) = self.child {
-            child.layout(inner_constraints)
+            child.layout(inner_constraints, text_measurer)
         } else {
             Size::zero()
         };

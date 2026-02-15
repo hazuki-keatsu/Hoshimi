@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -122,13 +122,13 @@ impl ExpandedRenderObject {
 }
 
 impl Layoutable for ExpandedRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         // Expanded fills all available space
         let size = Size::new(constraints.max_width, constraints.max_height);
 
         // Child fills the expanded widget
         let child_constraints = Constraints::tight(size);
-        self.child.layout(child_constraints);
+        self.child.layout(child_constraints, text_measurer);
         self.child.set_offset(Offset::ZERO);
 
         self.state.size = size;
@@ -374,7 +374,7 @@ impl FlexibleRenderObject {
 }
 
 impl Layoutable for FlexibleRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let child_constraints = match self.fit {
             FlexFit::Tight => Constraints::tight(Size::new(
                 constraints.max_width,
@@ -383,7 +383,7 @@ impl Layoutable for FlexibleRenderObject {
             FlexFit::Loose => constraints.loosen(),
         };
 
-        let child_size = self.child.layout(child_constraints);
+        let child_size = self.child.layout(child_constraints, text_measurer);
         self.child.set_offset(Offset::ZERO);
 
         let size = match self.fit {

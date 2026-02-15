@@ -8,7 +8,7 @@ use hoshimi_types::{Alignment, Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, HitTestResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -194,7 +194,7 @@ impl StackRenderObject {
 }
 
 impl Layoutable for StackRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let non_positioned_constraints = match self.fit {
             StackFit::Loose => constraints.loosen(),
             StackFit::Expand => Constraints::tight(Size::new(
@@ -211,7 +211,7 @@ impl Layoutable for StackRenderObject {
         let mut child_sizes: Vec<Size> = Vec::with_capacity(self.children.len());
 
         for child in &mut self.children {
-            let size = child.layout(non_positioned_constraints);
+            let size = child.layout(non_positioned_constraints, text_measurer);
             child_sizes.push(size);
             max_width = max_width.max(size.width);
             max_height = max_height.max(size.height);

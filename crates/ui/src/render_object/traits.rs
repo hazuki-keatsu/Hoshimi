@@ -17,7 +17,7 @@ use std::fmt::Debug;
 use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, HitTestResult, InputEvent};
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 
 // ============================================================================
 // Layout Trait
@@ -37,7 +37,7 @@ pub trait Layoutable: Debug {
     /// 2. Layout any children (passing appropriate child constraints)
     /// 3. Position children using `set_offset()`
     /// 4. Return the final size
-    fn layout(&mut self, constraints: Constraints) -> Size;
+    fn layout(&mut self, constraints: Constraints, _text_measurer: &dyn TextMeasurer) -> Size;
 
     /// Get the computed rect (position + size).
     fn get_rect(&self) -> Rect;
@@ -88,9 +88,9 @@ pub trait Layoutable: Debug {
     }
 
     /// Perform layout only if needed, skipping if already laid out.
-    fn layout_if_needed(&mut self, constraints: Constraints) -> Size {
+    fn layout_if_needed(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         if self.needs_layout() {
-            self.layout(constraints)
+            self.layout(constraints, text_measurer)
         } else {
             self.get_size()
         }
@@ -531,7 +531,7 @@ macro_rules! impl_render_object_single_child {
 pub struct EmptyRenderObject;
 
 impl Layoutable for EmptyRenderObject {
-    fn layout(&mut self, _constraints: Constraints) -> Size {
+    fn layout(&mut self, _constraints: Constraints, _text_measurer: &dyn TextMeasurer) -> Size {
         Size::zero()
     }
 

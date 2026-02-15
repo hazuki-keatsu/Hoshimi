@@ -92,17 +92,49 @@ impl Page for CounterPage {
                         )
                         .child(SizedBox::from_height(20.0))
                         .child(
-                            Container::new()
+                            Row::new()
                                 .child(
-                                    SizedBox::from_width(100.0).with_child(
-                                        Text::new("Test Overflow")
-                                            .with_overflow(TextOverflow::Ellipsis),
-                                    ),
+                                    Container::new()
+                                        .child(
+                                            SizedBox::from_width(100.0).with_child(
+                                                Text::new("Test ClipClip")
+                                                    .with_overflow(TextOverflow::Clip),
+                                            ),
+                                        )
+                                        .with_decoration(BoxDecoration {
+                                            color: Some(Color::cyan()),
+                                            ..Default::default()
+                                        }),
                                 )
-                                .with_decoration(BoxDecoration {
-                                    color: Some(Color::cyan()),
-                                    ..Default::default()
-                                }),
+                                .child(SizedBox::from_width(12.0))
+                                .child(
+                                    Container::new()
+                                        .child(
+                                            SizedBox::from_width(100.0).with_child(
+                                                Text::new("Test Fade")
+                                                    .with_overflow(TextOverflow::Fade),
+                                            ),
+                                        )
+                                        .with_decoration(BoxDecoration {
+                                            color: Some(Color::cyan()),
+                                            ..Default::default()
+                                        }),
+                                )
+                                .child(SizedBox::from_width(12.0))
+                                .child(
+                                    Container::new()
+                                        .child(
+                                            SizedBox::from_width(100.0).with_child(
+                                                Text::new("Test Ellipsis")
+                                                    .with_overflow(TextOverflow::Ellipsis),
+                                            ),
+                                        )
+                                        .with_decoration(BoxDecoration {
+                                            color: Some(Color::cyan()),
+                                            ..Default::default()
+                                        }),
+                                )
+                                .with_main_axis_alignment(MainAxisAlignment::Center)
                         )
                         .child(SizedBox::from_height(20.0))
                         .child(

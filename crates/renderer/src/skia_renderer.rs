@@ -384,12 +384,25 @@ impl SkiaRenderer {
 
     /// Measure text dimensions
     pub fn measure_text(&self, text: &str, font_size: f32) -> Size {
+        let paint = Self::create_fill_paint(Color::WHITE);
         let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
-        let (width, _) = font.measure_str(text, None::<&Paint>);
+        // Use measure_str with paint to get accurate visual bounds
+        // measure_str returns (advance_width, bounds_rect)
+        let (_, bounds) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
         // Use descent - ascent for consistent height with draw_text_centered
         let height = metrics.1.descent - metrics.1.ascent;
-        Size::new(width, height)
+        // Use bounds.width() for accurate visual width (includes left/right side bearings)
+        // bounds.width() = bounds.right - bounds.left
+        Size::new(bounds.width(), height)
+    }
+
+    /// Get text bounds left offset (left side bearing)
+    pub fn get_text_bounds_left(&self, text: &str, font_size: f32) -> f32 {
+        let paint = Self::create_fill_paint(Color::WHITE);
+        let font = Self::create_font_with_mgr(&self.font_mgr, font_size);
+        let (_, bounds) = font.measure_str(text, Some(&paint));
+        bounds.left
     }
 
     /// Draw text with a font by cache key (for use with load_font_from_data)
@@ -449,12 +462,25 @@ impl SkiaRenderer {
     pub fn measure_text_with_font_key(&self, text: &str, font_key: &str, font_size: f32) -> RendererResult<Size> {
         let typeface = self.font_cache.get(font_key)
             .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?;
+        let paint = Self::create_fill_paint(Color::WHITE);
         let font = Font::from_typeface(typeface, font_size);
-        let (width, _) = font.measure_str(text, None::<&Paint>);
+        // Use measure_str with paint to get accurate visual bounds
+        let (_, bounds) = font.measure_str(text, Some(&paint));
         let metrics = font.metrics();
         // Use descent - ascent for consistent height with draw_text_centered
         let height = metrics.1.descent - metrics.1.ascent;
-        Ok(Size::new(width, height))
+        // Use bounds.width() for accurate visual width
+        Ok(Size::new(bounds.width(), height))
+    }
+
+    /// Get text bounds left offset with a specific font by cache key
+    pub fn get_text_bounds_left_with_font_key(&self, text: &str, font_key: &str, font_size: f32) -> RendererResult<f32> {
+        let typeface = self.font_cache.get(font_key)
+            .ok_or_else(|| RendererError::FontLoadFailed(format!("Font '{}' not found in cache", font_key)))?;
+        let paint = Self::create_fill_paint(Color::WHITE);
+        let font = Font::from_typeface(typeface, font_size);
+        let (_, bounds) = font.measure_str(text, Some(&paint));
+        Ok(bounds.left)
     }
 
     // ==================== Image Drawing ====================
@@ -599,6 +625,157 @@ impl SkiaRenderer {
         let skia_rrect = rect_to_rrect_uniform(rect, radius);
         self.canvas()
             .clip_rrect(skia_rrect, skia_safe::ClipOp::Intersect, true);
+    }
+
+    // ==================== Layer with Gradient Alpha ====================
+
+    /// Save a layer with a horizontal gradient alpha mask
+    /// 
+    /// This creates a layer where content is drawn with a horizontal alpha gradient.
+    /// The gradient goes from `start_alpha` at the left to `end_alpha` at the right.
+    /// 
+    /// Must be paired with `restore()` to composite the layer back.
+    pub fn save_layer_gradient_alpha(
+        &mut self,
+        rect: Rect,
+        start_alpha: f32,
+        end_alpha: f32,
+    ) {
+        use skia_safe::gradient_shader;
+        use skia_safe::TileMode;
+        
+        // Create a horizontal gradient shader for alpha mask
+        // Using SrcIn blend mode: the result is src color modulated by dst alpha
+        // We draw white color with gradient alpha, so the layer content gets modulated
+        let colors = [
+            SkiaColor::from_argb((start_alpha.clamp(0.0, 1.0) * 255.0) as u8, 255, 255, 255),
+            SkiaColor::from_argb((end_alpha.clamp(0.0, 1.0) * 255.0) as u8, 255, 255, 255),
+        ];
+        
+        let shader = gradient_shader::linear(
+            (skia_safe::Point::new(rect.x, rect.y), skia_safe::Point::new(rect.x + rect.width, rect.y)),
+            colors.as_slice(),
+            None,
+            TileMode::Clamp,
+            None,
+            None,
+        );
+        
+        if let Some(shader) = shader {
+            let mut paint = Paint::default();
+            paint.set_shader(shader);
+            // Use SrcIn: result = src * dst_alpha
+            // This means the layer content (dst) will be modulated by the shader's alpha
+            paint.set_blend_mode(skia_safe::BlendMode::SrcIn);
+            
+            // Save layer with the paint
+            let skia_rect: SkiaRect = rect.into();
+            let layer_rec = skia_safe::canvas::SaveLayerRec::default()
+                .bounds(&skia_rect)
+                .paint(&paint);
+            self.canvas().save_layer(&layer_rec);
+        } else {
+            // Fallback: just save without gradient
+            self.canvas().save();
+        }
+    }
+
+    /// Save a layer with a uniform alpha value
+    /// 
+    /// This creates a layer for subsequent drawing operations.
+    /// When restored, the layer is composited with the given alpha.
+    pub fn save_layer_alpha(&mut self, rect: Rect, alpha: f32) {
+        let skia_rect: SkiaRect = rect.into();
+        self.canvas().save_layer_alpha(skia_rect, (alpha.clamp(0.0, 1.0) * 255.0) as u32);
+    }
+
+    /// Apply a gradient alpha mask to the current layer
+    /// 
+    /// This draws a horizontal gradient using DstIn blend mode.
+    /// The result is that the destination's alpha is modulated by the gradient.
+    /// - Where gradient alpha = 1: destination remains unchanged
+    /// - Where gradient alpha = 0: destination becomes transparent
+    pub fn apply_gradient_alpha_mask(&mut self, rect: Rect, start_alpha: f32, end_alpha: f32) {
+        use skia_safe::gradient_shader;
+        use skia_safe::TileMode;
+        
+        // DstIn blend mode: result = dst * src_alpha
+        // - Where src_alpha = 1: dst remains unchanged (visible)
+        // - Where src_alpha = 0: dst becomes transparent
+        
+        let colors = [
+            SkiaColor::from_argb((start_alpha.clamp(0.0, 1.0) * 255.0) as u8, 255, 255, 255),
+            SkiaColor::from_argb((end_alpha.clamp(0.0, 1.0) * 255.0) as u8, 255, 255, 255),
+        ];
+        
+        let shader = gradient_shader::linear(
+            (skia_safe::Point::new(rect.x, rect.y), skia_safe::Point::new(rect.x + rect.width, rect.y)),
+            colors.as_slice(),
+            None,
+            TileMode::Clamp,
+            None,
+            None,
+        );
+        
+        if let Some(shader) = shader {
+            let mut paint = Paint::default();
+            paint.set_shader(shader);
+            paint.set_blend_mode(skia_safe::BlendMode::DstIn);
+            paint.set_anti_alias(true);
+            
+            let skia_rect: SkiaRect = rect.into();
+            self.canvas().draw_rect(skia_rect, &paint);
+        }
+    }
+
+    /// Draw a fade mask over a region
+    /// 
+    /// This draws a horizontal gradient that fades out content underneath.
+    /// When `fade_to_right` is true, the gradient goes from opaque (left) to transparent (right).
+    /// When `fade_to_right` is false, the gradient goes from transparent (left) to opaque (right).
+    /// 
+    /// This uses DstOut blend mode to "erase" the content underneath.
+    pub fn draw_fade_mask(&mut self, rect: Rect, fade_to_right: bool) {
+        use skia_safe::gradient_shader;
+        use skia_safe::TileMode;
+        
+        // DstOut blend mode: result = dst * (1 - src_alpha)
+        // - Where src_alpha = 0: dst remains unchanged (visible)
+        // - Where src_alpha = 1: dst becomes transparent (erased)
+        
+        // For fade-to-right (text fades out towards right):
+        // - Left side should be visible (src_alpha = 0)
+        // - Right side should be erased (src_alpha = 1)
+        
+        let (left_alpha, right_alpha) = if fade_to_right {
+            (0.0, 1.0)  // Left: visible, Right: erased
+        } else {
+            (1.0, 0.0)  // Left: erased, Right: visible
+        };
+        
+        let colors = [
+            SkiaColor::from_argb((left_alpha * 255.0) as u8, 0, 0, 0),
+            SkiaColor::from_argb((right_alpha * 255.0) as u8, 0, 0, 0),
+        ];
+        
+        let shader = gradient_shader::linear(
+            (skia_safe::Point::new(rect.x, rect.y), skia_safe::Point::new(rect.x + rect.width, rect.y)),
+            colors.as_slice(),
+            None,
+            TileMode::Clamp,
+            None,
+            None,
+        );
+        
+        if let Some(shader) = shader {
+            let mut paint = Paint::default();
+            paint.set_shader(shader);
+            paint.set_blend_mode(skia_safe::BlendMode::DstOut);
+            paint.set_anti_alias(true);
+            
+            let skia_rect: SkiaRect = rect.into();
+            self.canvas().draw_rect(skia_rect, &paint);
+        }
     }
 
     // ==================== Resource Management ====================

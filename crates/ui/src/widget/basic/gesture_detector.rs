@@ -16,7 +16,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, GestureKind, HitTestResult, InputEvent, UIMessage};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -224,9 +224,9 @@ impl GestureDetectorRenderObject {
 }
 
 impl Layoutable for GestureDetectorRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         // GestureDetector takes the size of its child
-        let child_size = self.child.layout(constraints);
+        let child_size = self.child.layout(constraints, text_measurer);
         self.child.set_offset(Offset::zero());
 
         self.state.size = child_size;

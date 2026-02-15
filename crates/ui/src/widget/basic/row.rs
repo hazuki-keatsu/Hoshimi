@@ -10,7 +10,7 @@ use hoshimi_types::{
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -202,7 +202,7 @@ impl RowRenderObject {
 }
 
 impl Layoutable for RowRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         if self.children.is_empty() {
             let size = match self.main_axis_size {
                 MainAxisSize::Min => constraints.smallest(),
@@ -239,7 +239,7 @@ impl Layoutable for RowRenderObject {
                 total_flex += flex;
             } else {
                 // Non-flex child: layout immediately
-                let size = child.layout(non_flex_constraints);
+                let size = child.layout(non_flex_constraints, text_measurer);
                 child_sizes[i] = Some(size);
                 allocated_width += size.width;
                 max_height = max_height.max(size.height);
@@ -286,7 +286,7 @@ impl Layoutable for RowRenderObject {
                 )
             };
 
-            let size = child.layout(child_constraints);
+            let size = child.layout(child_constraints, text_measurer);
             child_sizes[*index] = Some(size);
             max_height = max_height.max(size.height);
         }

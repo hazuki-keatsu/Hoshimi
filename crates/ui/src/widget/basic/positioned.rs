@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -239,11 +239,11 @@ impl PositionedRenderObject {
 }
 
 impl Layoutable for PositionedRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         // Calculate child constraints based on position
         let child_constraints = self.compute_child_constraints(constraints);
 
-        let child_size = self.child.layout(child_constraints);
+        let child_size = self.child.layout(child_constraints, text_measurer);
 
         // Calculate position
         let x = if let Some(left) = self.left {

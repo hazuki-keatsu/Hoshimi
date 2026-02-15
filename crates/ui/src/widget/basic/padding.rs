@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, EdgeInsets, Offset, Rect, Size};
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -131,7 +131,7 @@ impl PaddingRenderObject {
 }
 
 impl Layoutable for PaddingRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let horizontal_padding = self.padding.left + self.padding.right;
         let vertical_padding = self.padding.top + self.padding.bottom;
 
@@ -143,7 +143,7 @@ impl Layoutable for PaddingRenderObject {
             (constraints.max_height - vertical_padding).max(0.0),
         );
 
-        let child_size = self.child.layout(child_constraints);
+        let child_size = self.child.layout(child_constraints, text_measurer);
 
         // Position child with left/top padding offset
         self.child.set_offset(Offset::new(self.padding.left, self.padding.top));

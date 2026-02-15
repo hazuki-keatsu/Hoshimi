@@ -9,3 +9,4 @@ A **high-performance**, **content-driven**, and **easy-to-use** visual novel eng
 ## TODO
 
 - [x] Maybe we can implement a more efficient diff algorithm for the UI tree update.
+- [ ] Use LayoutContext to manage the access for the resource needed by the calculation of layout.

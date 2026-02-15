@@ -7,7 +7,7 @@ use std::any::{Any, TypeId};
 use hoshimi_types::{Alignment, Constraints, ImageFit, Offset, Rect, Size};
 
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -260,7 +260,7 @@ impl ImageRenderObject {
 }
 
 impl Layoutable for ImageRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let width = self.explicit_width.unwrap_or(self.intrinsic_size.width);
         let height = self.explicit_height.unwrap_or(self.intrinsic_size.height);
 

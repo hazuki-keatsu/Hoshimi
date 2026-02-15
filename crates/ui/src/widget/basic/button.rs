@@ -33,7 +33,7 @@ use hoshimi_types::{
 
 use crate::events::{EventResult, HitTestResult, InputEvent, UIMessage, GestureKind, MouseButton};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -1138,10 +1138,10 @@ impl ButtonRenderObject {
 }
 
 impl Layoutable for ButtonRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         let child_constraints = constraints.loosen();
         let child_size = if let Some(ref mut child_ro) = self.child {
-            child_ro.layout(child_constraints)
+            child_ro.layout(child_constraints, text_measurer)
         } else {
             Size::zero()
         };

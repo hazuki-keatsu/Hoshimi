@@ -11,7 +11,7 @@ use tracing::{debug, trace};
 use crate::events::{EventResult, InputEvent, UIMessage};
 use crate::gesture::{GestureConfig, InputEventQueue};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::RenderObject;
 use crate::widget::Widget;
 
@@ -147,19 +147,19 @@ impl UiTree {
     }
     
     /// Perform layout if needed
-    pub fn layout_if_needed(&mut self) {
+    pub fn layout_if_needed(&mut self, text_measurer: &dyn TextMeasurer) {
         if !self.needs_layout {
             return;
         }
         
-        self.layout();
+        self.layout(text_measurer);
     }
     
     /// Force layout
-    pub fn layout(&mut self) {
+    pub fn layout(&mut self, text_measurer: &dyn TextMeasurer) {
         if let Some(ref mut root) = self.root {
             trace!("Performing layout with constraints: {:?}", self.constraints);
-            self.last_size = root.layout(self.constraints);
+            self.last_size = root.layout(self.constraints, text_measurer);
             self.needs_layout = false;
             self.needs_paint = true;
         }
@@ -167,7 +167,8 @@ impl UiTree {
     
     /// Paint the tree
     pub fn paint(&mut self, painter: &mut dyn Painter) {
-        self.layout_if_needed();
+        // Painter implements TextMeasurer, so we can use it for layout
+        self.layout_if_needed(painter as &dyn TextMeasurer);
         
         if let Some(ref root) = self.root {
             // trace!("Painting UI tree");

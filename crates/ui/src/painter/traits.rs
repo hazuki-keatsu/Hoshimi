@@ -26,7 +26,7 @@ use hoshimi_types::{
 /// - Clipping region
 /// 
 /// Use `save()` and `restore()` to manage state.
-pub trait Painter {
+pub trait Painter: TextMeasurer {
     // ========================================================================
     // State Management
     // ========================================================================
@@ -42,6 +42,42 @@ pub trait Painter {
     
     /// Set a rounded rectangle clipping region
     fn clip_rounded_rect(&mut self, rect: Rect, radius: BorderRadius);
+    
+    /// Save a layer with a horizontal gradient alpha mask
+    /// 
+    /// This creates a layer where content is drawn with a horizontal alpha gradient.
+    /// The gradient goes from `start_alpha` at the left to `end_alpha` at the right.
+    /// 
+    /// Must be paired with `restore()` to composite the layer back.
+    fn save_layer_gradient_alpha(
+        &mut self,
+        rect: Rect,
+        start_alpha: f32,
+        end_alpha: f32,
+    );
+    
+    /// Save a layer with a uniform alpha value
+    /// 
+    /// This creates a layer for subsequent drawing operations.
+    /// When restored, the layer is composited with the given alpha.
+    fn save_layer_alpha(&mut self, rect: Rect, alpha: f32);
+    
+    /// Apply a gradient alpha mask to the current layer
+    /// 
+    /// This draws a horizontal gradient using DstIn blend mode.
+    /// The result is that the destination's alpha is modulated by the gradient.
+    /// - Where gradient alpha = 1: destination remains unchanged
+    /// - Where gradient alpha = 0: destination becomes transparent
+    fn apply_gradient_alpha_mask(&mut self, rect: Rect, start_alpha: f32, end_alpha: f32);
+    
+    /// Draw a fade mask over a region
+    /// 
+    /// This draws a horizontal gradient that fades out content underneath.
+    /// When `fade_to_right` is true, the gradient goes from opaque (left) to transparent (right).
+    /// When `fade_to_right` is false, the gradient goes from transparent (left) to opaque (right).
+    /// 
+    /// This uses DstOut blend mode to "erase" the content underneath.
+    fn draw_fade_mask(&mut self, rect: Rect, fade_to_right: bool);
     
     // ========================================================================
     // Transforms
@@ -171,11 +207,22 @@ pub trait Painter {
         }
         
         let size = self.measure_text(text, style);
+        // Get the left side bearing to handle characters that extend left of origin
+        let bounds_left = self.get_text_bounds_left(text, style);
         
         let x = match align {
-            TextAlign::Left | TextAlign::Justify => rect.x,
+            TextAlign::Left | TextAlign::Justify => {
+                // Adjust for left side bearing: if bounds_left is negative,
+                // the character extends left of origin, so we need to start
+                // drawing further right to ensure the visual bounds start at rect.x
+                rect.x - bounds_left
+            }
             TextAlign::Center => unreachable!(), // Handled above
-            TextAlign::Right => rect.x + rect.width - size.width,
+            TextAlign::Right => {
+                // For right alignment, position so the visual right edge aligns with rect.right
+                // bounds_left + size.width gives the visual width from origin to right edge
+                rect.x + rect.width - size.width - bounds_left
+            }
         };
         
         // Vertically center
@@ -221,21 +268,6 @@ pub trait Painter {
     /// - 4 edges (stretched in one direction)
     /// - 1 center (stretched in both directions)
     fn draw_nine_patch(&mut self, image_key: &str, dest_rect: Rect, insets: EdgeInsets);
-    
-    // ========================================================================
-    // Measurement
-    // ========================================================================
-    
-    /// Measure the size of text
-    fn measure_text(&self, text: &str, style: &TextStyle) -> Size;
-    
-    /// Get the line height for a text style
-    fn line_height(&self, style: &TextStyle) -> f32;
-    
-    /// Measure character positions within text
-    /// 
-    /// Returns the X offset of each character boundary.
-    fn measure_char_positions(&self, text: &str, style: &TextStyle) -> Vec<f32>;
     
     // ========================================================================
     // Utility
@@ -305,6 +337,12 @@ pub trait Painter {
 pub trait TextMeasurer {
     /// Measure the size of text
     fn measure_text(&self, text: &str, style: &TextStyle) -> Size;
+    
+    /// Get text bounds offset (left side bearing)
+    /// 
+    /// Returns the horizontal offset from the origin to the left edge of the text bounds.
+    /// This can be negative for characters that extend left of the origin (like italic letters).
+    fn get_text_bounds_left(&self, text: &str, style: &TextStyle) -> f32;
     
     /// Get the line height for a text style
     fn line_height(&self, style: &TextStyle) -> f32;

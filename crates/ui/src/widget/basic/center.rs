@@ -8,7 +8,7 @@ use hoshimi_types::{Constraints, Offset, Rect, Size};
 
 use crate::events::{EventResult, InputEvent};
 use crate::key::WidgetKey;
-use crate::painter::Painter;
+use crate::painter::{Painter, TextMeasurer};
 use crate::render_object::{
     EventHandlable, Layoutable, Lifecycle, Paintable, Parent, RenderObject, RenderObjectState,
 };
@@ -137,10 +137,10 @@ impl CenterRenderObject {
 }
 
 impl Layoutable for CenterRenderObject {
-    fn layout(&mut self, constraints: Constraints) -> Size {
+    fn layout(&mut self, constraints: Constraints, text_measurer: &dyn TextMeasurer) -> Size {
         // Let child be as small as it wants
         let child_constraints = constraints.loosen();
-        let child_size = self.child.layout(child_constraints);
+        let child_size = self.child.layout(child_constraints, text_measurer);
 
         // Determine our size
         let width = match self.width_factor {
