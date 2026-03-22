@@ -1,0 +1,12 @@
+[package]
+name = "hoshimi_renderer"
+version = { workspace = true}
+edition = { workspace = true}
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+hoshimi_types = { path = "../types", features = ["skia"] }
+hoshimi_logger = { path = "../logger"}
+skia-safe = { workspace = true }

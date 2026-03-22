@@ -1,9 +1,15 @@
 {
     "cSpell.words": [
+        "Animatable",
+        "downcasting",
         "Frontmatter",
+        "Handlable",
         "Hoshimi",
+        "Layoutable",
         "mlua",
         "MSVC",
+        "Paintable",
+        "relayout",
         "Skia",
         "Typora"
     ]

@@ -1,0 +1,10 @@
+[package]
+name = "hoshimi_ui"
+version = { workspace = true}
+edition = { workspace = true}
+
+[dependencies]
+hoshimi_types = { path = "../types" }
+hoshimi_logger = { path = "../logger" }
+hoshimi_renderer = { path = "../renderer" }
+tracing = { workspace = true }

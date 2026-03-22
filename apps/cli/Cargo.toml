@@ -1,0 +1,12 @@
+[package]
+name = "hoshimi_cli"
+version = { workspace = true}
+edition = { workspace = true}
+
+[[bin]]
+name = "hoshimi"
+path = "src/hoshimi.rs"
+
+[dependencies]
+clap = { version = "4.5.57", features = ["derive"] }
+colored = "3.1.1"
